@@ -1,0 +1,1 @@
+# bateria_cenralna
