@@ -10,7 +10,7 @@ CBcLogger::CBcLogger()
 }
 
 /*
- * @brief   Singleton pattern instance return method
+ * @brief   Singleton pattern instance return method.
  */
 CBcLogger* CBcLogger::instance()
 {
