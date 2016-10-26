@@ -1,31 +1,46 @@
 #ifndef CBCLOGGER_H
 #define CBCLOGGER_H
 
+#include <QMetaEnum>
 #include <QObject>
 #include <QString>
 #include <QDateTime>
 #include <QThread>
+#include <QTextStream>
 
 /*
  * @brief   Describes the log level for an item
  */
-enum class ELogLevel
+#ifndef Q_MOC_RUN
+namespace MLL
+#else
+class MLL
+#endif
 {
-    eNone       = 0,
-    e_Critical,
-    e_Warning,
-    e_Info,
-    e_Debug
-};
+#if defined(Q_MOC_RUN)
+    Q_GADGET
+    Q_ENUMS(ELogLevel)
+public:
+#endif
+    enum ELogLevel
+    {
+        LNone = 0,
+        LCritical,
+        LWarning,
+        LInfo,
+        LDebug
+    };
+    extern const QMetaObject staticMetaObject;
+}
 
 /*
  * @brief   Single log object descriptor
  */
 struct logLine_t
 {
-    QString     logstr;         /*!< String to be saved to file */
-    ELogLevel   loglvl;         /*!< Log level for an item */
-    QDateTime   datetime;       /*!< Time stamp for the log item */
+    QString             logstr;         /*!< String to be saved to file */
+    MLL::ELogLevel      loglvl;         /*!< Log level for an item */
+    QDateTime           datetime;       /*!< Time stamp for the log item */
 };
 
 /*
@@ -36,12 +51,23 @@ class ClogPrinter : public QObject
 {
     Q_OBJECT
 public:
-        using QObject::QObject;
-
-signals:
+    ClogPrinter();
+    void setVerbose(bool val = false) { m_verbose = val; }
 
 public slots:
-        void onLogEventHappened(const logLine_t& logline);
+    void onLogEventHappened(const logLine_t& logline);
+
+private:
+    // methods
+    inline QTextStream& vPrint()
+    {
+        static QTextStream r{stdout};
+        return r;
+    }
+
+    // members
+    QMetaEnum       m_metaEnum;             /*!< MetaEnum object used for serialising log levels */
+    bool            m_verbose;              /*!< Defines either logs should be also printed to console */
 };
 
 class CBcLogger : public QObject
@@ -52,8 +78,9 @@ public:
     //explicit CBcLogger(QObject *parent = 0);
     static CBcLogger* instance();
 
-    int startLogger(QString filename, bool verbose);
-    void print(ELogLevel lvl, const char* text, ...);
+    void startLogger(QString filename, bool verbose, MLL::ELogLevel ll);
+    void setLogLevel(MLL::ELogLevel ll = MLL::LDebug) { m_setLogLvl = ll; }
+    void print(MLL::ELogLevel lvl, const char* text, ...);
 
 
 signals:
@@ -62,9 +89,8 @@ signals:
 private:
 // members
     static CBcLogger*   mp_instance;
-    ELogLevel           m_setLogLvl;            /*!< Log level to compare */
+    MLL::ELogLevel      m_setLogLvl;            /*!< Log level to compare */
     bool                m_loggerStarted;        /*!< logging possible only if set */
-    bool                m_verbose;              /*!< Defines either logs should be also printed to console */
     QString             m_fileName;             /*!< Patch to the log file */
     QThread             m_printThread;          /*!< Printer object has to be moved to this thread */
     ClogPrinter         m_logPrinter;           /*!< Log printer object */

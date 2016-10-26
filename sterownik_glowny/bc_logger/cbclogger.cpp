@@ -1,8 +1,29 @@
 #include "cbclogger.h"
+#include "string.h"
 
 #include "QDebug"
 
-#include "string.h"
+
+ClogPrinter::ClogPrinter()
+{
+    // get the QMetaEnum object
+    const QMetaObject &mo = MLL::staticMetaObject;
+    int enum_index = mo.indexOfEnumerator("ELogLevel");
+    m_metaEnum = mo.enumerator(enum_index);
+}
+
+void ClogPrinter::onLogEventHappened(const logLine_t& logline)
+{
+    QString constr = "[" + logline.datetime.toString("dd.MM.yyyy-hh:mm:ss:zzz") + "]" +
+                     "[" + m_metaEnum.valueToKey(logline.loglvl) + "]" + " " + logline.logstr;
+
+    if (m_verbose)
+        vPrint() << constr << endl;
+}
+
+
+
+
 
 // Initialize the instance pointer
 CBcLogger* CBcLogger::mp_instance = NULL;
@@ -33,9 +54,9 @@ CBcLogger* CBcLogger::instance()
  * @brief   Initializes the logger. After this method is called logging is possible.
  * @param   filename: File patch to the created log.
  * @param   verbose: Sets printing to console.
- * @return  0 if all ok.
+ * @param   ll: Set log level.
  */
-int CBcLogger::startLogger(QString filename, bool verbose)
+void CBcLogger::startLogger(QString filename, bool verbose, MLL::ELogLevel ll)
 {
     // register logline type
     qRegisterMetaType<logLine_t>("logLine_t");
@@ -54,7 +75,11 @@ int CBcLogger::startLogger(QString filename, bool verbose)
     // set the logger ftarted flag
     m_loggerStarted = true;
 
-    return 0;
+    // set the verbose flag
+    m_logPrinter.setVerbose(verbose);
+
+    // log level threshold
+    setLogLevel(ll);
 }
 
 /*
@@ -62,8 +87,16 @@ int CBcLogger::startLogger(QString filename, bool verbose)
  * @param   lvl: Log level of the line.
  * @param   text: Formatted input for va_list.
  */
-void CBcLogger::print(ELogLevel lvl, const char* text, ...)
+void CBcLogger::print(MLL::ELogLevel lvl, const char* text, ...)
 {
+    // check if logger initialized
+    if (!m_loggerStarted)
+        return;
+
+    // check if log level sufficient
+    if (lvl > m_setLogLvl)
+        return;
+
     logLine_t logline;
     logline.loglvl = lvl;
     logline.datetime = QDateTime::currentDateTime();
@@ -79,15 +112,10 @@ void CBcLogger::print(ELogLevel lvl, const char* text, ...)
     }
 
     va_end(argptr);
-
     emit addNewLogLine(logline);
 }
 
-void ClogPrinter::onLogEventHappened(const logLine_t& logline)
-{
-    qDebug() << "[" << logline.datetime.toString("dd.MM.yyyy-hh:mm:ss:zzz") << "]" <<
-                "[" << "]";
-}
+
 
 
 
