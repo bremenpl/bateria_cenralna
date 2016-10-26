@@ -1,5 +1,8 @@
 #include "cbclogger.h"
+
 #include "QDebug"
+
+#include "string.h"
 
 // Initialize the instance pointer
 CBcLogger* CBcLogger::mp_instance = NULL;
@@ -34,10 +37,22 @@ CBcLogger* CBcLogger::instance()
  */
 int CBcLogger::startLogger(QString filename, bool verbose)
 {
-    // temp
+    // register logline type
+    qRegisterMetaType<logLine_t>("logLine_t");
+
+    // start the printer thread
+    m_printThread.start(QThread::IdlePriority);
+
+    // move the printer object to it
+    m_logPrinter.moveToThread(&m_printThread);
+
+    // make the connection
+    connect(mp_instance, SIGNAL(addNewLogLine(logLine_t)),
+            &mp_instance->m_logPrinter, SLOT(onLogEventHappened(logLine_t)),
+            Qt::QueuedConnection);
+
+    // set the logger ftarted flag
     m_loggerStarted = true;
-    m_verbose = verbose;
-    m_fileName = filename;
 
     return 0;
 }
@@ -49,9 +64,29 @@ int CBcLogger::startLogger(QString filename, bool verbose)
  */
 void CBcLogger::print(ELogLevel lvl, const char* text, ...)
 {
-    // temp
-    qDebug("test 1");
-    qDebug() << "test 2";
+    logLine_t logline;
+    logline.loglvl = lvl;
+    logline.datetime = QDateTime::currentDateTime();
+
+    va_list argptr;
+    va_start(argptr, text);
+
+    char* output = NULL;
+    if (vasprintf(&output, text, argptr))
+    {
+        logline.logstr = output;
+        delete output;
+    }
+
+    va_end(argptr);
+
+    emit addNewLogLine(logline);
+}
+
+void ClogPrinter::onLogEventHappened(const logLine_t& logline)
+{
+    qDebug() << "[" << logline.datetime.toString("dd.MM.yyyy-hh:mm:ss:zzz") << "]" <<
+                "[" << "]";
 }
 
 

@@ -8,8 +8,13 @@ int main(int argc, char *argv[])
 
     CBcLogger::instance()->startLogger("test", true);
 
-    CBcLogger::instance()->print(CBcLogger::ELogLevel::e_Debug, "abc");
+    CBcLogger::instance()->print(ELogLevel::e_Debug, "abc %u 0x%X", 5, 99);
 
-    //return a.exec();
-    return 0;
+    return a.exec();
+    //return 0;
 }
+
+
+
+
+
