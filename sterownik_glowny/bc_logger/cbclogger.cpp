@@ -68,8 +68,8 @@ void CBcLogger::startLogger(QString filename, bool verbose, MLL::ELogLevel ll)
     m_logPrinter.moveToThread(&m_printThread);
 
     // make the connection
-    connect(mp_instance, SIGNAL(addNewLogLine(logLine_t)),
-            &mp_instance->m_logPrinter, SLOT(onLogEventHappened(logLine_t)),
+    connect(mp_instance, SIGNAL(addNewLogLine(const logLine_t&)),
+            &mp_instance->m_logPrinter, SLOT(onLogEventHappened(const logLine_t&)),
             Qt::QueuedConnection);
 
     // set the logger ftarted flag

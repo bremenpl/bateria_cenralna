@@ -4,6 +4,10 @@ QT -= gui
 CONFIG += c++11
 
 TARGET = bc_logger
+
+target.path = /home/pi/
+INSTALLS += target
+
 CONFIG += console
 CONFIG -= app_bundle
 
@@ -14,3 +18,4 @@ SOURCES += main.cpp \
 
 HEADERS += \
     cbclogger.h
+

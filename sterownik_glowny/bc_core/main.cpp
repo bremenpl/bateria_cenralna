@@ -1,4 +1,5 @@
 #include <QCoreApplication>
+#include "cbclogger.h"
 
 int main(int argc, char *argv[])
 {
