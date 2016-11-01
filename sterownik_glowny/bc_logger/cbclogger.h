@@ -80,7 +80,9 @@ public:
 
     void startLogger(QString filename, bool verbose, MLL::ELogLevel ll);
     void setLogLevel(MLL::ELogLevel ll = MLL::LDebug) { m_setLogLvl = ll; }
+
     void print(MLL::ELogLevel lvl, const char* text, ...);
+    //LoggerHelper operator()() const { return LoggerHelper{}; }
 
 
 signals:
@@ -98,8 +100,29 @@ private:
 // methods
     CBcLogger();                              /*!< Hidden constructor cannot be called */
 
+// operators
+    CBcLogger* &operator<<(const char *c);
 
 public slots:
+};
+
+struct LoggerHelper
+{
+    logLine_t logline;
+
+    explicit LoggerHelper(MLL::ELogLevel ll = MLL::LDebug) { logline.loglvl = ll; }
+    //LoggerHelper(LoggerHelper&&) = default;
+
+    ~LoggerHelper() { emit CBcLogger::instance()->addNewLogLine(logline); }
+
+    template<typename T>
+    LoggerHelper& operator<<(T const& val)
+    {
+        logline.datetime = QDateTime::currentDateTime();
+        QTextStream s(&logline.logstr);
+        s << val;
+        return *this;
+    }
 };
 
 

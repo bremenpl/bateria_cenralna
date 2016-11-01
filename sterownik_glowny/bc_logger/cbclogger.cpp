@@ -82,10 +82,10 @@ void CBcLogger::startLogger(QString filename, bool verbose, MLL::ELogLevel ll)
     setLogLevel(ll);
 }
 
-/*
- * @brief   Adds the log line to the print queue.
- * @param   lvl: Log level of the line.
- * @param   text: Formatted input for va_list.
+/*!
+ * \brief Adds the log line to the print queue.
+ * \param lvl: Log level of the line.
+ * \param text: Formatted input for va_list.
  */
 void CBcLogger::print(MLL::ELogLevel lvl, const char* text, ...)
 {
@@ -108,12 +108,14 @@ void CBcLogger::print(MLL::ELogLevel lvl, const char* text, ...)
     if (vasprintf(&output, text, argptr))
     {
         logline.logstr = output;
-        delete output;
+        free(output);
     }
 
     va_end(argptr);
     emit addNewLogLine(logline);
 }
+
+
 
 
 

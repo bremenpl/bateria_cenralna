@@ -1,4 +1,4 @@
-QT += core serialport serialbus
+QT += core serialport serialbus network
 QT -= gui
 
 CONFIG += c++11
@@ -19,4 +19,5 @@ SOURCES += main.cpp \
     ../bc_logger/cbclogger.cpp
 
 HEADERS += \
-    ../bc_logger/cbclogger.h
+    ../bc_logger/cbclogger.h \
+    literals.h
