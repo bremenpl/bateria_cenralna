@@ -25,9 +25,10 @@ int main(int argc, char *argv[])
     }
 
     // logger tests
-    CBcLogger::instance()->startLogger("test", true, MLL::ELogLevel::LDebug);
-    CBcLogger::instance()->print(MLL::ELogLevel::LDebug, "abc %u 0x%X", 5, 99);
-    LoggerHelper(MLL::ELogLevel::LInfo) << "test";
+    CBcLogger::instance()->startLogger("test", true, MLL::ELogLevel::LWarning);
+
+    CBcLogger::instance()->print(MLL::ELogLevel::LCritical, "abc %u 0x%X", 5, 99);
+    CBcLogger::instance()->print(MLL::ELogLevel::LCritical) << "test " << 123 << " 345";
 
 
     return coreApp.exec();

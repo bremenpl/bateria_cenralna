@@ -21,10 +21,6 @@ void ClogPrinter::onLogEventHappened(const logLine_t& logline)
         vPrint() << constr << endl;
 }
 
-
-
-
-
 // Initialize the instance pointer
 CBcLogger* CBcLogger::mp_instance = NULL;
 
@@ -83,7 +79,7 @@ void CBcLogger::startLogger(QString filename, bool verbose, MLL::ELogLevel ll)
 }
 
 /*!
- * \brief Adds the log line to the print queue.
+ * \brief Adds the log line to the print queue, va_list style.
  * \param lvl: Log level of the line.
  * \param text: Formatted input for va_list.
  */
@@ -115,7 +111,21 @@ void CBcLogger::print(MLL::ELogLevel lvl, const char* text, ...)
     emit addNewLogLine(logline);
 }
 
+/*!
+ * \brief Adds the log line to the print queue, stream style.
+ * \param lvl: Log level of the line.
+ * \return \ref LoggerHelper to print the stream
+ */
+LoggerHelper CBcLogger::print(MLL::ELogLevel lvl) const
+{
+    return LoggerHelper(lvl, m_setLogLvl, m_loggerStarted);
+}
 
+/*!
+ * \brief Operator definition
+ * \return Logging object
+ */
+LoggerHelper CBcLogger::operator()() const { return LoggerHelper{}; }
 
 
 

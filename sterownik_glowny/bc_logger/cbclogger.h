@@ -70,6 +70,8 @@ private:
     bool            m_verbose;              /*!< Defines either logs should be also printed to console */
 };
 
+struct LoggerHelper;
+
 class CBcLogger : public QObject
 {
     Q_OBJECT
@@ -82,7 +84,8 @@ public:
     void setLogLevel(MLL::ELogLevel ll = MLL::LDebug) { m_setLogLvl = ll; }
 
     void print(MLL::ELogLevel lvl, const char* text, ...);
-    //LoggerHelper operator()() const { return LoggerHelper{}; }
+    LoggerHelper print(MLL::ELogLevel lvl) const;
+    LoggerHelper operator()() const;
 
 
 signals:
@@ -93,7 +96,7 @@ private:
     static CBcLogger*   mp_instance;
     MLL::ELogLevel      m_setLogLvl;            /*!< Log level to compare */
     bool                m_loggerStarted;        /*!< logging possible only if set */
-    QString             m_fileName;             /*!< Patch to the log file */
+    QString             m_path;                 /*!< Patch to the log file */
     QThread             m_printThread;          /*!< Printer object has to be moved to this thread */
     ClogPrinter         m_logPrinter;           /*!< Log printer object */
 
@@ -101,26 +104,48 @@ private:
     CBcLogger();                              /*!< Hidden constructor cannot be called */
 
 // operators
-    CBcLogger* &operator<<(const char *c);
+    //CBcLogger* &operator<<(const char *c);
 
 public slots:
 };
 
 struct LoggerHelper
 {
-    logLine_t logline;
+private:
+    bool m_noPrint;
+    logLine_t m_logline;
 
-    explicit LoggerHelper(MLL::ELogLevel ll = MLL::LDebug) { logline.loglvl = ll; }
+public:
+    explicit LoggerHelper(MLL::ELogLevel ll = MLL::LDebug,
+                          MLL::ELogLevel llmax = MLL::LNone,
+                          bool logStarted = false)
+    {
+        if ((!logStarted) || (ll > llmax))
+            m_noPrint = true;
+        else
+        {
+            m_noPrint = false;
+            m_logline.datetime = QDateTime::currentDateTime();
+            m_logline.loglvl = ll;
+        }
+    }
     //LoggerHelper(LoggerHelper&&) = default;
 
-    ~LoggerHelper() { emit CBcLogger::instance()->addNewLogLine(logline); }
+    ~LoggerHelper()
+    {
+        if (!m_noPrint)
+            emit CBcLogger::instance()->addNewLogLine(m_logline);
+    }
 
     template<typename T>
     LoggerHelper& operator<<(T const& val)
     {
-        logline.datetime = QDateTime::currentDateTime();
-        QTextStream s(&logline.logstr);
-        s << val;
+        if (!m_noPrint)
+        {
+            QTextStream s(&m_logline.logstr);
+            s << val;
+        }
+
         return *this;
     }
 };
