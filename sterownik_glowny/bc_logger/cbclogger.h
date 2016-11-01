@@ -7,6 +7,7 @@
 #include <QDateTime>
 #include <QThread>
 #include <QTextStream>
+#include <QFile>
 
 /*
  * @brief   Describes the log level for an item
@@ -52,7 +53,9 @@ class ClogPrinter : public QObject
     Q_OBJECT
 public:
     ClogPrinter();
+    ~ClogPrinter();
     void setVerbose(bool val = false) { m_verbose = val; }
+    int createNewLogFile(QString& path);
 
 public slots:
     void onLogEventHappened(const logLine_t& logline);
@@ -68,6 +71,8 @@ private:
     // members
     QMetaEnum       m_metaEnum;             /*!< MetaEnum object used for serialising log levels */
     bool            m_verbose;              /*!< Defines either logs should be also printed to console */
+    QTextStream*    mp_fss;                 /*!< To file save stream */
+    QFile           m_logFile;              /*!< Log file */
 };
 
 struct LoggerHelper;
@@ -80,7 +85,7 @@ public:
     //explicit CBcLogger(QObject *parent = 0);
     static CBcLogger* instance();
 
-    void startLogger(QString filename, bool verbose, MLL::ELogLevel ll);
+    void startLogger(QString fileDir, bool verbose, MLL::ELogLevel ll);
     void setLogLevel(MLL::ELogLevel ll = MLL::LDebug) { m_setLogLvl = ll; }
 
     void print(MLL::ELogLevel lvl, const char* text, ...);
@@ -96,12 +101,12 @@ private:
     static CBcLogger*   mp_instance;
     MLL::ELogLevel      m_setLogLvl;            /*!< Log level to compare */
     bool                m_loggerStarted;        /*!< logging possible only if set */
-    QString             m_path;                 /*!< Patch to the log file */
     QThread             m_printThread;          /*!< Printer object has to be moved to this thread */
     ClogPrinter         m_logPrinter;           /*!< Log printer object */
 
 // methods
     CBcLogger();                              /*!< Hidden constructor cannot be called */
+    ~CBcLogger();
 
 // operators
     //CBcLogger* &operator<<(const char *c);

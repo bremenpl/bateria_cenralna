@@ -10,21 +10,62 @@ ClogPrinter::ClogPrinter()
     const QMetaObject &mo = MLL::staticMetaObject;
     int enum_index = mo.indexOfEnumerator("ELogLevel");
     m_metaEnum = mo.enumerator(enum_index);
+    mp_fss = 0;
+}
+
+ClogPrinter::~ClogPrinter()
+{
+    if (mp_fss)
+        delete mp_fss;
+}
+
+/*!
+ * \brief Creates the log file for this session and opens it.
+ * \param path: path to directory where file wil be created
+ * \return 0 if all ok.
+ */
+int ClogPrinter::createNewLogFile(QString& path)
+{
+    // create file name
+    QDateTime dateTime(QDateTime::currentDateTime());
+    QString filename = path + "/" + dateTime.toString("dd.MM.yyyy-hh.mm.ss.zzz") + ".log";
+
+    // create and open file
+    m_logFile.setFileName(filename);
+    if (m_logFile.open(QFile::WriteOnly | QFile::Append))
+    {
+        // set stream
+        mp_fss = new QTextStream(&m_logFile);
+        return 0;
+    }
+
+    return 1;
 }
 
 void ClogPrinter::onLogEventHappened(const logLine_t& logline)
 {
+    // construct string
     QString constr = "[" + logline.datetime.toString("dd.MM.yyyy-hh:mm:ss:zzz") + "]" +
                      "[" + m_metaEnum.valueToKey(logline.loglvl) + "]" + " " + logline.logstr;
 
+    // print to console if verbose set
     if (m_verbose)
         vPrint() << constr << endl;
+
+    // save to specified file
+    if (mp_fss)
+        *mp_fss << constr << endl;
 }
 
 // Initialize the instance pointer
 CBcLogger* CBcLogger::mp_instance = NULL;
 
 CBcLogger::CBcLogger()
+{
+
+}
+
+CBcLogger::~CBcLogger()
 {
 
 }
@@ -46,13 +87,13 @@ CBcLogger* CBcLogger::instance()
     return mp_instance;
 }
 
-/*
- * @brief   Initializes the logger. After this method is called logging is possible.
- * @param   filename: File patch to the created log.
- * @param   verbose: Sets printing to console.
- * @param   ll: Set log level.
+/*!
+ * \brief Initializes the logger. After this method is called logging is possible.
+ * \param fileDir: File patch to the created log.
+ * \param verbose: Sets printing to console.
+ * \param ll: Set log level.
  */
-void CBcLogger::startLogger(QString filename, bool verbose, MLL::ELogLevel ll)
+void CBcLogger::startLogger(QString fileDir, bool verbose, MLL::ELogLevel ll)
 {
     // register logline type
     qRegisterMetaType<logLine_t>("logLine_t");
@@ -76,6 +117,14 @@ void CBcLogger::startLogger(QString filename, bool verbose, MLL::ELogLevel ll)
 
     // log level threshold
     setLogLevel(ll);
+
+    // create log file
+    int ret = m_logPrinter.createNewLogFile(fileDir);
+    if (ret)
+    {
+        qCritical() << "Unable to create file in directory" << fileDir << ". Aborting.";
+        exit(ret);
+    }
 }
 
 /*!

@@ -2,6 +2,7 @@
 #include <QCommandLineParser>
 #include <QString>
 #include <QDebug>
+#include <QDir>
 
 #include "literals.h"
 #include "cbclogger.h"
@@ -25,7 +26,7 @@ int main(int argc, char *argv[])
     }
 
     // logger tests
-    CBcLogger::instance()->startLogger("test", true, MLL::ELogLevel::LWarning);
+    CBcLogger::instance()->startLogger(path, verbose, ll);
 
     CBcLogger::instance()->print(MLL::ELogLevel::LCritical, "abc %u 0x%X", 5, 99);
     CBcLogger::instance()->print(MLL::ELogLevel::LCritical) << "test " << 123 << " 345";
@@ -81,6 +82,14 @@ int getParameters(QCoreApplication& coreApp, bool& verbose, QString& logPath, ML
     verbose = parser.isSet(verboseOpt);
     logPath = parser.value(pathOpt);
     logLevel = (MLL::ELogLevel)(parser.value(logLevelOpt).toInt());
+
+    // trim log level
+    if (logLevel > MLL::LDebug)
+        logLevel = MLL::LDebug;
+
+    // check if path is proper
+    if ("" == logPath)
+        logPath = QDir::tempPath();
 
     return retVal;
 }
