@@ -259,6 +259,23 @@ DItemRevisionGUID=
 GenerateClassCluster=0
 DocumentUniqueId=SMJKPFRI
 
+[Document14]
+DocumentPath=power.SchDoc
+AnnotationEnabled=1
+AnnotateStartValue=1
+AnnotationIndexControlEnabled=0
+AnnotateSuffix=
+AnnotateScope=All
+AnnotateOrder=7
+DoLibraryUpdate=1
+DoDatabaseUpdate=1
+ClassGenCCAutoEnabled=1
+ClassGenCCAutoRoomEnabled=1
+ClassGenNCAutoScope=None
+DItemRevisionGUID=
+GenerateClassCluster=0
+DocumentUniqueId=EKRGENKH
+
 [Configuration1]
 Name=Default Configuration
 ParameterCount=0
