@@ -92,7 +92,7 @@ int main(void)
   /* Start scheduler */
   osKernelStart();
   
-  //Komentarz_2
+  //Komentarz_2 3
   
   /* We should never get here as control is now taken by the scheduler */
 
