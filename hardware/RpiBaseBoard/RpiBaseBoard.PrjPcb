@@ -276,13 +276,17 @@ DItemRevisionGUID=
 GenerateClassCluster=0
 DocumentUniqueId=
 
-[Parameter1]
-Name=ver
-Value=1.0
+[GeneratedDocument1]
+DocumentPath=Project Outputs for RpiBaseBoard\Design Rule Check - RpiBaseBoard.html
+DItemRevisionGUID=
 
-[Parameter2]
+[Parameter1]
 Name=id
 Value=RpiRs485Hat
+
+[Parameter2]
+Name=ver
+Value=1.0
 
 [Configuration1]
 Name=Default Configuration
