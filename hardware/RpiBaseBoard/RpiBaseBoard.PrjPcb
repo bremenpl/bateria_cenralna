@@ -276,6 +276,14 @@ DItemRevisionGUID=
 GenerateClassCluster=0
 DocumentUniqueId=
 
+[Parameter1]
+Name=ver
+Value=1.0
+
+[Parameter2]
+Name=id
+Value=RpiRs485Hat
+
 [Configuration1]
 Name=Default Configuration
 ParameterCount=0
