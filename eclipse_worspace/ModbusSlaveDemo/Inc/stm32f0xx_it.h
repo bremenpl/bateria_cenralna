@@ -47,7 +47,6 @@
 
 void SysTick_Handler(void);
 void DMA1_Channel2_3_IRQHandler(void);
-void TIM6_IRQHandler(void);
 void USART1_IRQHandler(void);
 
 #ifdef __cplusplus

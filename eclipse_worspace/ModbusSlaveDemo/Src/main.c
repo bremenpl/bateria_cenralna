@@ -45,13 +45,11 @@
 #include "stm32f0xx_hal.h"
 #include "cmsis_os.h"
 #include "dma.h"
-#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
 /* USER CODE BEGIN Includes */
-
-#include "u_timer_funcs.h"
+#include "u_modBusSlave.h"
 
 /* USER CODE END Includes */
 
@@ -94,10 +92,11 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
-  MX_TIM6_Init();
   MX_USART1_UART_Init();
 
   /* USER CODE BEGIN 2 */
+
+  mbs_Init(&huart1);
 
   /* USER CODE END 2 */
 

@@ -27,24 +27,24 @@
 							<builder buildPath="${workspace_loc:/ModbusSlaveDemo}/Debug" id="fr.ac6.managedbuild.builder.gnu.cross.584830032" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="Gnu Make Builder" superClass="fr.ac6.managedbuild.builder.gnu.cross">
 								<outputEntries>
 									<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="outputPath" name="Debug" />
-									<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="outputPath" name="Release" />
 								</outputEntries>
 							</builder>
 							<tool id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.1016010172" name="MCU GCC Compiler" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler">
-								<option defaultValue="gnu.c.optimization.level.none" id="fr.ac6.managedbuild.gnu.c.compiler.option.optimization.level.2006656984" name="Optimization Level" superClass="fr.ac6.managedbuild.gnu.c.compiler.option.optimization.level" useByScannerDiscovery="false" value="fr.ac6.managedbuild.gnu.c.optimization.level.size" valueType="enumerated" />
+								<option defaultValue="gnu.c.optimization.level.none" id="fr.ac6.managedbuild.gnu.c.compiler.option.optimization.level.2006656984" name="Optimization Level" superClass="fr.ac6.managedbuild.gnu.c.compiler.option.optimization.level" useByScannerDiscovery="false" value="fr.ac6.managedbuild.gnu.c.optimization.level.none" valueType="enumerated" />
 								<option id="gnu.c.compiler.option.debugging.level.2058934289" name="Debug Level" superClass="gnu.c.compiler.option.debugging.level" useByScannerDiscovery="false" value="gnu.c.debugging.level.max" valueType="enumerated" />
 								<option id="gnu.c.compiler.option.include.paths.1958217164" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
-									<listOptionValue builtIn="false" value="../Inc" />
-									<listOptionValue builtIn="false" value="../Drivers/STM32F0xx_HAL_Driver/Inc" />
-									<listOptionValue builtIn="false" value="../Drivers/STM32F0xx_HAL_Driver/Inc/Legacy" />
-									<listOptionValue builtIn="false" value="../Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM0" />
-									<listOptionValue builtIn="false" value="../Middlewares/Third_Party/FreeRTOS/Source/include" />
-									<listOptionValue builtIn="false" value="../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS" />
-									<listOptionValue builtIn="false" value="../Drivers/CMSIS/Include" />
-									<listOptionValue builtIn="false" value="../Drivers/CMSIS/Device/ST/STM32F0xx/Include" />
-									<listOptionValue builtIn="false" value="../Inc" />
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Inc" />
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Drivers/STM32F0xx_HAL_Driver/Inc" />
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Drivers/STM32F0xx_HAL_Driver/Inc/Legacy" />
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM0" />
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Middlewares/Third_Party/FreeRTOS/Source/include" />
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS" />
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Drivers/CMSIS/Include" />
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Drivers/CMSIS/Device/ST/STM32F0xx/Include" />
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/common_libs}&quot;" />
-								</option>
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Debug" />
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/user_files}&quot;" />
+								<listOptionValue builtIn="false" value="../Inc" /><listOptionValue builtIn="false" value="../Drivers/STM32F0xx_HAL_Driver/Inc" /><listOptionValue builtIn="false" value="../Drivers/STM32F0xx_HAL_Driver/Inc/Legacy" /><listOptionValue builtIn="false" value="../Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM0" /></option>
 								<option id="gnu.c.compiler.option.preprocessor.def.symbols.975196304" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="__weak=&quot;__attribute__((weak))&quot;" />
 									<listOptionValue builtIn="false" value="__packed=&quot;__attribute__((__packed__))&quot;" />
@@ -52,6 +52,7 @@
 									<listOptionValue builtIn="false" value="STM32F030x8" />
 								</option>
 								<option id="fr.ac6.managedbuild.gnu.c.compiler.option.misc.other.1363422655" superClass="fr.ac6.managedbuild.gnu.c.compiler.option.misc.other" useByScannerDiscovery="false" value="-fmessage-length=0" valueType="string" />
+								<option id="gnu.c.compiler.option.dialect.std.725543550" superClass="gnu.c.compiler.option.dialect.std" value="gnu.c.compiler.dialect.c99" valueType="enumerated" />
 								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c.47398223" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c" />
 								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s.1044887355" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s" />
 							</tool>
@@ -73,7 +74,16 @@
 							<tool id="fr.ac6.managedbuild.tool.gnu.archiver.1415312977" name="MCU GCC Archiver" superClass="fr.ac6.managedbuild.tool.gnu.archiver" />
 							<tool id="fr.ac6.managedbuild.tool.gnu.cross.assembler.526749608" name="MCU GCC Assembler" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler">
 								<option id="gnu.both.asm.option.include.paths.830211595" name="Include paths (-I)" superClass="gnu.both.asm.option.include.paths" valueType="includePath">
-									<listOptionValue builtIn="false" value="" />
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Inc" />
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Drivers/STM32F0xx_HAL_Driver/Inc" />
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Drivers/STM32F0xx_HAL_Driver/Inc/Legacy" />
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM0" />
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Middlewares/Third_Party/FreeRTOS/Source/include" />
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS" />
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Drivers/CMSIS/Include" />
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Drivers/CMSIS/Device/ST/STM32F0xx/Include" />
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/ModbusSlaveDemo/ModbusSlaveDemo/common_libs}&quot;" />
+									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Debug" />
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1995283733" superClass="cdt.managedbuild.tool.gnu.assembler.input" />
 								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.assembler.input.871894834" superClass="fr.ac6.managedbuild.tool.gnu.cross.assembler.input" />
@@ -86,6 +96,7 @@
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Middlewares" />
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Src" />
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="common_libs" />
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="user_files" />
 					</sourceEntries>
 				</configuration>
 			</storageModule>
