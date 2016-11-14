@@ -26,9 +26,9 @@
 	</natures>
 	<linkedResources>
 		<link>
-			<name />
-			<type />
-			<location />
+			<name>common_libs</name>
+			<type>2</type>
+			<location>M:/Github/bateria_cenralna/eclipse_worspace/common_libs</location>
 		</link>
 	</linkedResources>
 </projectDescription>
