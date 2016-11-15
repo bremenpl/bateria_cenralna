@@ -58,7 +58,13 @@ typedef struct
 /* Public variables ----------------------------------------------------------*/
 
 /* Fuction prototypes --------------------------------------------------------*/
+HAL_StatusTypeDef mbg_UartInit(UART_HandleTypeDef* uHandle);
 uint16_t mbg_CalculateCrc(uint8_t* data, size_t len);
+HAL_StatusTypeDef mbg_SendData(UART_HandleTypeDef* uHandle, uint8_t* data, size_t len);
+
+// overrides
+void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle);
+void mbm_uartRxRoutine(UART_HandleTypeDef* uHandle);
 
 /* Function declarations -----------------------------------------------------*/
 

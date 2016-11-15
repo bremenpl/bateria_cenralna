@@ -15,6 +15,7 @@
 /* Enums and structs ---------------------------------------------------------*/
 
 /* Private variables ---------------------------------------------------------*/
+static osMutexId mbg_sendMut;	/*!< Used for allowing sending only in one thread */
 
 /* Public variables ----------------------------------------------------------*/
 
@@ -92,6 +93,99 @@ uint16_t mbg_CalculateCrc(uint8_t* data, size_t len)
 	uint16_t crc = ((uint16_t)uchCRCHi << 8) | (uint16_t)uchCRCLo;
 	return  crc;
 }
+
+/*
+ * @brief	Initializes the common hardware part for MODBUS master/ slave.
+ * 			Run it inside master/ slave init function.
+ * @param	uHandle: Uart handle pointer.
+ * @param	HAL_OK if initialization complete.
+ */
+HAL_StatusTypeDef mbg_UartInit(UART_HandleTypeDef* uHandle)
+{
+	assert_param(uHandle);
+	if (uHandle == NULL)
+		return HAL_ERROR;
+
+	HAL_StatusTypeDef retVal = HAL_OK;
+
+	/*
+	 * TODO: Initialize the serial parameters here maybe?
+	 */
+
+	// manually initialize registers for t3.5 timing
+	uHandle->Instance->CR2 |= USART_CR2_RTOEN; // Receiver timeout enable
+	uHandle->Instance->CR1 |= USART_CR1_RTOIE; // Receiver timeout interrupt enable
+	uHandle->Instance->RTOR |= 38;			   // Receiver timeout value (11 * 3.5)
+
+	// Init send mutex
+	osMutexDef_t tempMutDef;
+	mbg_sendMut = osMutexCreate(&tempMutDef);
+	if (!mbg_sendMut)
+		retVal++;
+
+	// enable half duplex mode
+	retVal += HAL_HalfDuplex_Init(uHandle);
+
+	return retVal;
+}
+
+/*
+ * @brief	Sends specified \ref data of size \ref len, using \ref uHandle.
+ * 			Data is transmitted in half duplex mode.
+ * @param	uHandle: uart handle using which data will be sent.
+ * @param	data: pointer to the data stream.
+ * @param	len: nr of bytes to send.
+ * @return	HAL_OK if transmission succesfull.
+ */
+HAL_StatusTypeDef mbg_SendData(UART_HandleTypeDef* uHandle, uint8_t* data, size_t len)
+{
+	if (!len)
+		return HAL_OK; // nothing to send
+
+	assert_param(uHandle);
+	assert_param(data);
+	HAL_StatusTypeDef retVal = HAL_OK;
+
+	// lock
+	osMutexWait(mbg_sendMut, osWaitForever);
+
+	// enable sending, DE should toggle
+	retVal += HAL_HalfDuplex_EnableTransmitter(uHandle);
+
+	// send with DMA
+	while (HAL_UART_GetState(uHandle) != HAL_UART_STATE_READY);
+	retVal += HAL_UART_Transmit_DMA(uHandle, data, len);
+
+	// release
+	osMutexRelease(mbg_sendMut);
+	return retVal;
+}
+
+/*
+ * @brief	Uart handle overwrite function for both master and slave modules.
+ * 			Depending on which driver is used the proper function has to be
+ * 			overwritten in master/ slave module.
+ */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	// check if SLAVE handled
+	mbs_uartRxRoutine(huart);
+
+	// check if MASTER handled
+	mbm_uartRxRoutine(huart);
+}
+
+/*
+ * @brief	ModBus MASTER weak override function. Do NOT override it in SLAVE framework.
+ * @param	uHandle: pointer to the uart modbus master struct.
+ */
+__attribute__((weak)) void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle) { }
+
+/*
+ * @brief	ModBus SLAVE weak override function. Do NOT override it in MASTER framework.
+ * @param	uHandle: pointer to the uart modbus slave struct.
+ */
+__attribute__((weak)) void mbm_uartRxRoutine(UART_HandleTypeDef* uHandle) { }
 
 
 
