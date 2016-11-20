@@ -96,7 +96,7 @@ int main(void)
 
   /* USER CODE BEGIN 2 */
 
-  mbs_Init(&huart1);
+  mbs_Init(&huart1, 5);
 
   /* USER CODE END 2 */
 

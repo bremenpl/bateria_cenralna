@@ -37,6 +37,7 @@
 #include "cmsis_os.h"
 
 /* USER CODE BEGIN 0 */
+#include "u_modBusGeneric.h"
 
 /* USER CODE END 0 */
 
@@ -96,6 +97,8 @@ void USART1_IRQHandler(void)
   /* USER CODE END USART1_IRQn 0 */
   HAL_UART_IRQHandler(&huart1);
   /* USER CODE BEGIN USART1_IRQn 1 */
+
+  mbg_ClearRTOCF_Flag(&huart1);
 
   /* USER CODE END USART1_IRQn 1 */
 }
