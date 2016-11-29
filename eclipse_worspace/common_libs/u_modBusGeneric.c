@@ -16,10 +16,14 @@
 
 /* Private variables ---------------------------------------------------------*/
 static osMutexId mbg_sendMut;	/*!< Used for allowing sending only in one thread */
+static uint8_t mbg_rxTxBuffer[MBG_MAX_FRAME_LEN];
 
 /* Public variables ----------------------------------------------------------*/
 
 /* Fuction prototypes --------------------------------------------------------*/
+uint16_t mbg_CalculateCrc(uint8_t* data, size_t len);
+HAL_StatusTypeDef mbg_CheckSendStatus(UART_HandleTypeDef* uHandle);
+HAL_StatusTypeDef mbg_SendData(UART_HandleTypeDef* uHandle, uint8_t* data, size_t len);
 
 /* Function declarations -----------------------------------------------------*/
 
@@ -95,6 +99,42 @@ uint16_t mbg_CalculateCrc(uint8_t* data, size_t len)
 }
 
 /*
+ * @brief	Function calculates the crc of provided \ref mf frame
+ * 			and compares it to the crc of it.
+ * @param	mf: pointer to a modbus frame.
+ * @return	HAL_OK if calculated crc and \ref mf crc match.
+ */
+HAL_StatusTypeDef mbg_CheckCrc(const modbusFrame_t* const mf)
+{
+	assert_param(mf);
+	HAL_StatusTypeDef retVal = HAL_OK;
+
+	// prepare the data, copy it for the simplicity sake. It is done in a non blocking
+	// thread anyways.
+	uint32_t i = 0;
+
+	// addr
+	mbg_rxTxBuffer[i++] = mf->addr;
+
+	// function code
+	mbg_rxTxBuffer[i++] = mf->code;
+
+	// data
+	uint32_t k;
+	for (k = 0; k < mf->dataLen; k++, i++)
+		mbg_rxTxBuffer[i] = mf->data[k];
+
+	// caluclate crc
+	uint16_t calcCrc = mbg_CalculateCrc(mbg_rxTxBuffer, i);
+
+	// check match
+	if (calcCrc != mf->crc)
+		retVal = HAL_ERROR;
+
+	return retVal;
+}
+
+/*
  * @brief	Initializes the common hardware part for MODBUS master/ slave.
  * 			Run it inside master/ slave init function.
  * @param	uHandle: Uart handle pointer.
@@ -112,21 +152,64 @@ HAL_StatusTypeDef mbg_UartInit(UART_HandleTypeDef* uHandle)
 	 * TODO: Initialize the serial parameters here maybe?
 	 */
 
-	// manually initialize registers for t3.5 timing
-	uHandle->Instance->CR2 |= USART_CR2_RTOEN; // Receiver timeout enable
-	uHandle->Instance->CR1 |= USART_CR1_RTOIE; // Receiver timeout interrupt enable
-	uHandle->Instance->RTOR |= 38;			   // Receiver timeout value (11 * 3.5)
-
 	// Init send mutex
 	osMutexDef_t tempMutDef;
 	mbg_sendMut = osMutexCreate(&tempMutDef);
 	if (!mbg_sendMut)
 		retVal++;
 
-	// enable half duplex mode
-	retVal += HAL_HalfDuplex_Init(uHandle);
-
 	return retVal;
+}
+
+/*
+ * @brief	Check if sending through \ref uHandle is possible.
+ * @param	uHandle: pointer to a uart struct.
+ * @return	HAL_OK if can send.
+ */
+HAL_StatusTypeDef mbg_CheckSendStatus(UART_HandleTypeDef* uHandle)
+{
+	HAL_UART_StateTypeDef state = HAL_UART_GetState(uHandle);
+	if ((state == HAL_UART_STATE_READY) || (state == HAL_UART_STATE_BUSY_RX))
+		return HAL_OK;
+
+	return HAL_ERROR;
+}
+
+/*
+ * @brief	Sends the specified \ref mf through \ref uHandle.
+ * 			Also calculates the CRC for the frame.
+ * @param	uHandle: uart handler struct pointer.
+ * @param	mf: frame to be sent pointer.
+ * @return	HAL_OK if sent succesfull.
+ */
+HAL_StatusTypeDef mbg_SendFrame(UART_HandleTypeDef* uHandle, modbusFrame_t* mf)
+{
+	if (!uHandle)
+		return HAL_ERROR;
+
+	// start stuffing the buffer with data
+	uint32_t i = 0;
+
+	// address
+	mbg_rxTxBuffer[i++] = mf->addr;
+
+	// func code
+	mbg_rxTxBuffer[i++] = mf->code;
+
+	// data
+	uint32_t k;
+	for (k = 0; k < mf->dataLen; k++, i++)
+		mbg_rxTxBuffer[i] = mf->data[k];
+
+	// caluclate crc
+	uint16_t calcCrc = mbg_CalculateCrc(mbg_rxTxBuffer, i);
+
+	// add the crc to the buffer
+	mbg_rxTxBuffer[i++] = (uint8_t)calcCrc;
+	mbg_rxTxBuffer[i++] = (uint8_t)(calcCrc >> 8);
+
+	// send the data and return
+	return mbg_SendData(uHandle, mbg_rxTxBuffer, i);
 }
 
 /*
@@ -149,11 +232,10 @@ HAL_StatusTypeDef mbg_SendData(UART_HandleTypeDef* uHandle, uint8_t* data, size_
 	// lock
 	osMutexWait(mbg_sendMut, osWaitForever);
 
-	// enable sending, DE should toggle
-	retVal += HAL_HalfDuplex_EnableTransmitter(uHandle);
-
 	// send with DMA
-	while (HAL_UART_GetState(uHandle) != HAL_UART_STATE_READY);
+	while (mbg_CheckSendStatus(uHandle))
+		osDelay(1);
+
 	retVal += HAL_UART_Transmit_DMA(uHandle, data, len);
 
 	// release
@@ -162,7 +244,85 @@ HAL_StatusTypeDef mbg_SendData(UART_HandleTypeDef* uHandle, uint8_t* data, size_
 }
 
 /*
- * @brief	Uart handle overwrite function for both master and slave modules.
+ * @brief	Enables the MODBUS t3,5 char timer.
+ * @param	uHandle: pointer to an uart handle struct.
+ */
+void mbg_EnableRxTimeout(UART_HandleTypeDef* uHandle)
+{
+	assert_param(uHandle);
+
+	// manually initialize registers for t3.5 timing
+	//mbg_DisableRxTimeout(uHandle);
+
+	uHandle->Instance->CR2 |= USART_CR2_RTOEN; // Receiver timeout enable
+	uHandle->Instance->CR1 |= USART_CR1_RTOIE; // Receiver timeout interrupt enable
+	uHandle->Instance->RTOR |= 100;			   // Receiver timeout value (11 * 3.5)
+}
+
+/*
+ * @brief	Disables the MODBUS t3,5 char timer.
+ * @param	uHandle: pointer to an uart handle struct.
+ */
+void mbg_DisableRxTimeout(UART_HandleTypeDef* uHandle)
+{
+	assert_param(uHandle);
+
+	uHandle->Instance->CR2 &= ~USART_CR2_RTOEN; // Receiver timeout disable
+	uHandle->Instance->CR1 &= ~USART_CR1_RTOIE; // Receiver timeout interrupt disable
+	__HAL_UART_CLEAR_IT(uHandle, UART_CLEAR_RTOCF); // clear RTOF flag
+}
+
+/*
+ * @brief	Enable half duplex uart DMA receiver for \ref len number of bytes.
+ * @param	uHandle: uart handle struct pointer.
+ * @param	data: pointer to data stream.
+ * @param	len: amount of bytes to receive.
+ * @param	enableRxTimeout: Non zero means rx timeout should be ON.
+ * @return	HAL_OK if inits succesfull.
+ */
+HAL_StatusTypeDef mbg_EnableReceiver(UART_HandleTypeDef* uHandle,
+		uint8_t* data, const uint16_t len, const uint32_t enableRxTimeout)
+{
+	if (!len)
+		return HAL_OK; // nothing sent
+
+	assert_param(uHandle);
+	assert_param(data);
+	HAL_StatusTypeDef retVal = HAL_OK;
+
+	// Disable RX timeout interrupt
+	mbg_DisableRxTimeout(uHandle);
+
+	// Disable uart RX DMA
+	retVal += HAL_UART_DMAStop(uHandle);
+
+	// Wait for ready status
+	while (HAL_UART_GetState(uHandle) != HAL_UART_STATE_READY);
+
+	// Enable receive
+	retVal += HAL_UART_Receive_DMA(uHandle, data, len);
+
+	// Enable Rx timeout if rx DMA is ok and parameter is set
+	if ((!retVal) && enableRxTimeout)
+		mbg_EnableRxTimeout(uHandle);
+	else
+		mbg_DisableRxTimeout(uHandle);
+
+	return retVal;
+}
+
+/*
+ * @brief	Uart TX complete handle overwrite function for both master and slave modules.
+ * 			Depending on which driver is used the proper function has to be
+ * 			overwritten in master/ slave module.
+ */
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+	__asm("NOP");
+}
+
+/*
+ * @brief	Uart RX complete handle overwrite function for both master and slave modules.
  * 			Depending on which driver is used the proper function has to be
  * 			overwritten in master/ slave module.
  */
@@ -173,6 +333,27 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 	// check if MASTER handled
 	mbm_uartRxRoutine(huart);
+}
+
+/*
+ * @brief	Place this function in the \ref USART1_IRQHandler handler because HAL
+ * 			doesnt support RTOCF flag clearing.
+ * @param	uHandle: uart handle struct pointer.
+ */
+void mbg_ClearRTOCF_Flag(UART_HandleTypeDef* uHandle)
+{
+	assert_param(uHandle);
+
+	// check RTOF flag
+	if((__HAL_UART_GET_IT(uHandle, UART_IT_RTOF) != RESET) &&
+		  (__HAL_UART_GET_IT_SOURCE(uHandle, UART_IT_RTOF) != RESET))
+	{
+		__HAL_UART_CLEAR_IT(uHandle, UART_CLEAR_RTOCF);
+
+		// Handle this situation differently in slave / master module
+		mbs_uartRxTimeoutRoutine(uHandle);
+		mbm_uartRxTimeoutRoutine(uHandle);
+	}
 }
 
 /*
@@ -187,6 +368,17 @@ __attribute__((weak)) void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle) { }
  */
 __attribute__((weak)) void mbm_uartRxRoutine(UART_HandleTypeDef* uHandle) { }
 
+/*
+ * @brief	ModBus MASTER weak override function. Do NOT override it in SLAVE framework.
+ * @param	uHandle: pointer to the uart modbus master struct.
+ */
+__attribute__((weak)) void mbs_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle) { }
+
+/*
+ * @brief	ModBus SLAVE weak override function. Do NOT override it in MASTER framework.
+ * @param	uHandle: pointer to the uart modbus slave struct.
+ */
+__attribute__((weak)) void mbm_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle) { }
 
 
 

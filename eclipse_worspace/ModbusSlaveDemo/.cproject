@@ -44,7 +44,16 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/common_libs}&quot;" />
 									<listOptionValue builtIn="false" value="M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Debug" />
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/user_files}&quot;" />
-								<listOptionValue builtIn="false" value="../Inc" /><listOptionValue builtIn="false" value="../Drivers/STM32F0xx_HAL_Driver/Inc" /><listOptionValue builtIn="false" value="../Drivers/STM32F0xx_HAL_Driver/Inc/Legacy" /><listOptionValue builtIn="false" value="../Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM0" /><listOptionValue builtIn="false" value="../Drivers/CMSIS/Device/ST/STM32F0xx/Include" /><listOptionValue builtIn="false" value="../Middlewares/Third_Party/FreeRTOS/Source/include" /><listOptionValue builtIn="false" value="../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS" /><listOptionValue builtIn="false" value="../Drivers/CMSIS/Include" /></option>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/demo}&quot;" />
+									<listOptionValue builtIn="false" value="../Inc" />
+									<listOptionValue builtIn="false" value="../Drivers/STM32F0xx_HAL_Driver/Inc" />
+									<listOptionValue builtIn="false" value="../Drivers/STM32F0xx_HAL_Driver/Inc/Legacy" />
+									<listOptionValue builtIn="false" value="../Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM0" />
+									<listOptionValue builtIn="false" value="../Drivers/CMSIS/Device/ST/STM32F0xx/Include" />
+									<listOptionValue builtIn="false" value="../Middlewares/Third_Party/FreeRTOS/Source/include" />
+									<listOptionValue builtIn="false" value="../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS" />
+									<listOptionValue builtIn="false" value="../Drivers/CMSIS/Include" />
+								</option>
 								<option id="gnu.c.compiler.option.preprocessor.def.symbols.975196304" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="__weak=&quot;__attribute__((weak))&quot;" />
 									<listOptionValue builtIn="false" value="__packed=&quot;__attribute__((__packed__))&quot;" />
@@ -52,7 +61,7 @@
 									<listOptionValue builtIn="false" value="STM32F030x8" />
 								</option>
 								<option id="fr.ac6.managedbuild.gnu.c.compiler.option.misc.other.1363422655" superClass="fr.ac6.managedbuild.gnu.c.compiler.option.misc.other" useByScannerDiscovery="false" value="-fmessage-length=0" valueType="string" />
-								<option id="gnu.c.compiler.option.dialect.std.725543550" superClass="gnu.c.compiler.option.dialect.std" value="gnu.c.compiler.dialect.c99" valueType="enumerated" />
+								<option id="gnu.c.compiler.option.dialect.std.725543550" name="Language standard" superClass="gnu.c.compiler.option.dialect.std" useByScannerDiscovery="true" value="gnu.c.compiler.dialect.c99" valueType="enumerated" />
 								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c.47398223" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.c" />
 								<inputType id="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s.1044887355" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.compiler.input.s" />
 							</tool>
@@ -96,6 +105,7 @@
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Middlewares" />
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Src" />
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="common_libs" />
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="demo" />
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="user_files" />
 					</sourceEntries>
 				</configuration>

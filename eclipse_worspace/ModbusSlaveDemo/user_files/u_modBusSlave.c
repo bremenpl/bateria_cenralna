@@ -29,7 +29,7 @@ static mbsRxState_t mbs_rxState;
 
 /* Fuction prototypes --------------------------------------------------------*/
 void mbs_task_rxDequeue(void const* argument);
-HAL_StatusTypeDef mbs_ExamineFuncCode(uint8_t fCode, uint8_t* data_p, uint32_t* len);
+HAL_StatusTypeDef mbs_ExamineFuncCode(const uint8_t fCode, uint8_t** data_p, uint32_t* len);
 
 /* Function declarations -----------------------------------------------------*/
 
@@ -84,9 +84,10 @@ HAL_StatusTypeDef mbs_Init(UART_HandleTypeDef* uartHandle, uint8_t address)
 /*
  * @brief	Call this method in function code examination routine.
  * @param	fCode: Input parameter, received function code to examine.
- * @param	data_p: Output parameter,
+ * @param	data_p: data pointer under which rx data will be saved,
+ * @param	len: length of received data.
  */
-HAL_StatusTypeDef mbs_ExamineFuncCode(uint8_t fCode, uint8_t* data_p, uint32_t* len)
+HAL_StatusTypeDef mbs_ExamineFuncCode(const uint8_t fCode, uint8_t** data_p, uint32_t* len)
 {
 	assert_param(fCode);
 	assert_param(data_p);
@@ -98,6 +99,13 @@ HAL_StatusTypeDef mbs_ExamineFuncCode(uint8_t fCode, uint8_t* data_p, uint32_t* 
 	{
 		case e_mbFuncCode_ReadHoldingRegisters:
 		{
+			// For this request one has to wait for 4 bytes:
+			// Starting address (2), quantity of registers (2)
+			*data_p = mbs_rxFrames[mbs_rxFramesIndex].data;
+			*len = 4;
+
+			// save length for generic purposes, like crc calculation
+			mbs_rxFrames[mbs_rxFramesIndex].dataLen = *len;
 			break;
 		}
 
@@ -106,10 +114,46 @@ HAL_StatusTypeDef mbs_ExamineFuncCode(uint8_t fCode, uint8_t* data_p, uint32_t* 
 			break;
 		}
 
-		default: retVal =  HAL_ERROR; // unknown function code
+		default:
+		{
+			// same principle as for 1st byte
+			*data_p = &mbs_rxFrames[mbs_rxFramesIndex].code;
+			*len = MBG_MAX_DATA_LEN + 3;
+			retVal =  HAL_ERROR; // unknown function code
+		}
 	}
 
 	return retVal;
+}
+
+/*
+ * @brief	Send an exception code frame to the master in response to a request.
+ * @param	mf: pointer to a received modbus frame, that will now be used as data
+ * 			container for creating a response frame. This is done like this due to
+ * 			memory and speed optimalisation reasons.
+ * 			The protocol is half duplex so its safe.
+ * @param	exCode: Exception code of type \ref mbsExCode_t.
+ * @return
+ */
+HAL_StatusTypeDef mbs_SendErrorResponse(modbusFrame_t* mf, mbsExCode_t exCode)
+{
+	if (!mbs_uartHandle)
+		return HAL_ERROR;
+
+	if (!mf)
+		return HAL_ERROR;
+
+	// modify function code (becomes error code)
+	mf->code |= MBS_EXCODE_ADDR_OR;
+
+	// save exception code in data field
+	mf->data[0] = (uint8_t)exCode;
+
+	// update data length
+	mf->dataLen = 1;
+
+	// send the data and return
+	return mbg_SendFrame(mbs_uartHandle, mf);
 }
 
 /*
@@ -158,8 +202,31 @@ void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle)
 		{
 			// if the function is known, go further. If not, start from the begging
 			// after timeout
-			if (!mbs_ExamineFuncCode(mbs_rxFrames[mbs_rxFramesIndex].code, data_p, &len))
+			if (!mbs_ExamineFuncCode(mbs_rxFrames[mbs_rxFramesIndex].code, &data_p, &len))
 				mbs_rxState = e_mbsRxState_data;
+			break;
+		}
+
+		case e_mbsRxState_data: // received the data
+		{
+			// now its tie to receive 16 bit CRC
+			data_p = (uint8_t*)&mbs_rxFrames[mbs_rxFramesIndex].crc;
+			len = 2;
+			mbs_rxState = e_mbsRxState_crc;
+			break;
+		}
+
+		case e_mbsRxState_crc:
+		{
+			// Add a completed frame to the queue, crc will be calculated there
+			// then wait for the rx timeout to restart the receiver
+
+			if (osOK == osMessagePut(mbs_msgQId_rX,
+					(uint32_t)&mbs_rxFrames[mbs_rxFramesIndex], 0))
+			{
+				if (++mbs_rxFramesIndex >= MBS_RCV_QUEUE_SIZE)
+					mbs_rxFramesIndex = 0;
+			}
 			break;
 		}
 
@@ -199,7 +266,7 @@ void mbs_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle)
 	mbs_rxState = e_mbsRxState_addr;
 
 	// debug
-	HAL_GPIO_TogglePin(GPIOA, 1 << 5);
+	//HAL_GPIO_TogglePin(GPIOA, 1 << 5);
 }
 
 /*
@@ -211,11 +278,74 @@ void mbs_task_rxDequeue(void const* argument)
 	// Initially enable receiver for the 1st address byte, no rx timeout
 	mbg_EnableReceiver(mbs_uartHandle, &mbs_rxFrames[mbs_rxFramesIndex].addr, 1, 0);
 
+	osEvent retEvent;
+	mbsExCode_t exCode;
+	modbusFrame_t* mf;
+
 	while (1)
 	{
-		//HAL_GPIO_TogglePin(GPIOA, 1 << 5);
-		osDelay(100);
+		/*
+		 * 	Peek is used instead of get, in order to keep the message in the queue
+		 *	for the time of response creation and sending. the message gas to be
+		 *	dequeued eventually after response is sent.
+		 */
+		retEvent = osMessagePeek(mbs_msgQId_rX, osWaitForever);
+
+		if (retEvent.status == osEventMessage)
+		{
+			mf = (modbusFrame_t*)retEvent.value.p;
+
+			// validate crc
+			if (!mbg_CheckCrc(mf))
+			{
+				// crc OK, proceed. Check function code
+				switch (mf->code)
+				{
+					case e_mbFuncCode_ReadHoldingRegisters:
+					{
+						exCode = mbs_CheckReadHoldingRegistersRequest(mf);
+						break;
+					}
+
+					// for unknown function ILLEGAL FUNCTION error answer code
+					// has to be sent
+					default:
+					{
+						exCode = e_mbsExCode_illegalFunction;
+					}
+				}
+
+				// if exception code set, send error response
+				if (exCode)
+					mbs_SendErrorResponse(mf, exCode);
+
+				// otherwise standard response.
+				// Override func has to fill mf with data.
+				else
+					mbg_SendFrame(mbs_uartHandle, mf);
+			}
+
+			// finally remove the item from the queue. No need to check if there is
+			// any message, because this thread is the only dequeuer.
+			osMessageGet(mbs_msgQId_rX, osWaitForever);
+
+			// debug
+			//HAL_GPIO_TogglePin(GPIOA, 1 << 5);
+		}
 	}
+}
+
+// overrides
+
+/*
+ * @brief	The default read holding registers function.
+ * 			If not overriden, it always returns illegar data address ex code.
+ * @param	mf: pointer to a modbus frame struct.
+ * @return  exception code, 0 if function executed properly.
+ */
+__attribute__((weak))  mbsExCode_t mbs_CheckReadHoldingRegistersRequest(modbusFrame_t* mf)
+{
+	return e_mbsExCode_illegalDataAddr;
 }
 
 

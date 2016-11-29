@@ -50,6 +50,7 @@
 
 /* USER CODE BEGIN Includes */
 #include "u_modBusSlave.h"
+#include "u_demo.h"
 
 /* USER CODE END Includes */
 

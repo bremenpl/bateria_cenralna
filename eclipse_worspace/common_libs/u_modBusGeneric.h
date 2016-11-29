@@ -3,6 +3,11 @@
  *
  *  Created on: 14 lis 2016
  *      Author: Lukasz
+ *
+ *      index:
+ *      - mbg: ModBus Generic
+ *      - mbs: ModBus Slave
+ *      - mbm: ModBus Master
  */
 
 #ifndef U_MODBUSGENERIC_H_
@@ -15,10 +20,19 @@
 #endif
 
 #include "cmsis_os.h"
+#include "stdbool.h"
 
 /* Defines and macros --------------------------------------------------------*/
 #define MBG_MAX_DATA_LEN				252
+
+// addr + func + data + crc
+#define MBG_MAX_FRAME_LEN				(1 + 1 + MBG_MAX_DATA_LEN + 2)
 #define MBG_MAX_QTY_OF_REGS				((MBG_MAX_DATA_LEN / 2) - 1)
+
+// lacking UART_Interrupt_definition
+// Z = 11, X = 1, Y = 26
+#define UART_IT_RTOF                    ((uint16_t)0x0B3A)
+#define UART_CLEAR_RTOCF				USART_ICR_RTOCF
 
 /* Enums and structs ---------------------------------------------------------*/
 
@@ -59,12 +73,20 @@ typedef struct
 
 /* Fuction prototypes --------------------------------------------------------*/
 HAL_StatusTypeDef mbg_UartInit(UART_HandleTypeDef* uHandle);
-uint16_t mbg_CalculateCrc(uint8_t* data, size_t len);
-HAL_StatusTypeDef mbg_SendData(UART_HandleTypeDef* uHandle, uint8_t* data, size_t len);
+HAL_StatusTypeDef mbg_CheckCrc(const modbusFrame_t* const mf);
+HAL_StatusTypeDef mbg_SendFrame(UART_HandleTypeDef* uHandle, modbusFrame_t* mf);
+void mbg_EnableRxTimeout(UART_HandleTypeDef* uHandle);
+void mbg_DisableRxTimeout(UART_HandleTypeDef* uHandle);
+void mbg_ClearRTOCF_Flag(UART_HandleTypeDef* uHandle);
+HAL_StatusTypeDef mbg_EnableReceiver(UART_HandleTypeDef* uHandle,
+		uint8_t* data, const uint16_t len, const uint32_t enableRxTimeout);
 
 // overrides
 void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle);
 void mbm_uartRxRoutine(UART_HandleTypeDef* uHandle);
+
+void mbs_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle);
+void mbm_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle);
 
 /* Function declarations -----------------------------------------------------*/
 
