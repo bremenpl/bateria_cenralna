@@ -16,8 +16,10 @@ TEMPLATE = app
 INCLUDEPATH += ../bc_logger/
 
 SOURCES += main.cpp \
-    ../bc_logger/cbclogger.cpp
+    ../bc_logger/cbclogger.cpp \
+    cbcserialthread.cpp
 
 HEADERS += \
     ../bc_logger/cbclogger.h \
-    literals.h
+    literals.h \
+    cbcserialthread.h

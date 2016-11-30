@@ -6,8 +6,9 @@
 
 #include "literals.h"
 #include "cbclogger.h"
+#include "cbcserialthread.h"
 
-int getParameters(QCoreApplication& coreApp, bool& verbose, QString& logPath, MLL::ELogLevel& logLevel);
+int getParameters(QCoreApplication& coreApp, bool& verbose, QString& logPath, MLL::ELogLevel& logLevel, QString& serial);
 
 int main(int argc, char *argv[])
 {
@@ -17,21 +18,35 @@ int main(int argc, char *argv[])
     bool verbose;
     QString path;
     MLL::ELogLevel ll;
+    QString serialName;
 
-    int retVal = getParameters(coreApp, verbose, path, ll);
+    int retVal = getParameters(coreApp, verbose, path, ll, serialName);
     if (0 != retVal)
     {
-        qCritical("Parsing user parameters failed (%i). Aborting.", retVal);
+        if (-1 == retVal)
+            qCritical("Serial port not provided as parameter. Quiting");
+        else
+            qCritical("Parsing user parameters failed (%i). Aborting.", retVal);
         return retVal;
     }
 
-    // logger tests
+    // logger start
     CBcLogger::instance()->startLogger(path, verbose, ll);
 
-    CBcLogger::instance()->print(MLL::ELogLevel::LCritical, "abc %u 0x%X", 5, 99);
-    CBcLogger::instance()->print(MLL::ELogLevel::LCritical) << "test " << 123 << " 345";
+    // start modbus rtu master
+    try
+    {
+        CBcSerialThread serialThread(serialName);
+        serialThread.moveToThread(&serialThread);
+    }
+    catch (int retVal)
+    {
+        QThread::usleep(500);
+        return retVal;
+    }
 
-
+    //CBcLogger::instance()->print(MLL::ELogLevel::LCritical, "abc %u 0x%X", 5, 99);
+    //CBcLogger::instance()->print(MLL::ELogLevel::LCritical) << "test " << 123 << " 345";
     return coreApp.exec();
 }
 
@@ -43,7 +58,7 @@ int main(int argc, char *argv[])
  * \param logLevel: Refference under which the log level for the logger will be saved.
  * \return 0 if all ok.
  */
-int getParameters(QCoreApplication& coreApp, bool& verbose, QString& logPath, MLL::ELogLevel& logLevel)
+int getParameters(QCoreApplication& coreApp, bool& verbose, QString& logPath, MLL::ELogLevel& logLevel, QString& serial)
 {
     int retVal = 0;
 
@@ -69,6 +84,12 @@ int getParameters(QCoreApplication& coreApp, bool& verbose, QString& logPath, ML
     if (!parser.addOption(pathOpt))
         retVal++;
 
+    QCommandLineOption serialOpt(QStringList() << "s" << "serial",
+            QCoreApplication::translate("main", "Serial port device name, eg. ttyAMA0."),
+            QCoreApplication::translate("main", "device"));
+    if (!parser.addOption(serialOpt))
+        retVal++;
+
     QCommandLineOption logLevelOpt(QStringList() << "l" << "level",
             QCoreApplication::translate("main", "Sets the logging level (0-4)."),
             QCoreApplication::translate("main", "level"));
@@ -81,6 +102,7 @@ int getParameters(QCoreApplication& coreApp, bool& verbose, QString& logPath, ML
     // collect parameters
     verbose = parser.isSet(verboseOpt);
     logPath = parser.value(pathOpt);
+    serial = parser.value(serialOpt);
     logLevel = (MLL::ELogLevel)(parser.value(logLevelOpt).toInt());
 
     // trim log level
@@ -90,6 +112,10 @@ int getParameters(QCoreApplication& coreApp, bool& verbose, QString& logPath, ML
     // check if path is proper
     if ("" == logPath)
         logPath = QDir::tempPath();
+
+    // check if serial port device was set
+    if (!parser.isSet("serial"))
+        retVal = -1;
 
     return retVal;
 }

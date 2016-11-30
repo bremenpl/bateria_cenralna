@@ -45,8 +45,8 @@ int ClogPrinter::createNewLogFile(QString& path)
 void ClogPrinter::onLogEventHappened(const logLine_t& logline)
 {
     // construct string
-    QString constr = "[" + logline.datetime.toString("dd.MM.yyyy-hh:mm:ss:zzz") + "]" +
-                     "[" + m_metaEnum.valueToKey(logline.loglvl) + "]" + " " + logline.logstr;
+    QString constr = "[" + logline.datetime.toString("dd/MM/yyyy-hh:mm:ss.zzz") + "]" +
+                     "[" + m_metaEnum.valueToKey(logline.loglvl) + "] " + logline.logstr;
 
     // print to console if verbose set
     if (m_verbose)
