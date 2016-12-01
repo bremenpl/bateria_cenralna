@@ -3,13 +3,12 @@
 
 #include <QThread>
 #include <QString>
-#include <QModbusClient>
-#include <QModbusRtuSerialMaster>
 #include <QSerialPortInfo>
 #include <QSerialPort>
-#include <QVariant>
+#include <QTimer>
 
 #include "cbclogger.h"
+#include "csmrm.h"
 
 class CBcSerialThread : public QThread
 {
@@ -20,9 +19,18 @@ public:
 
     void run(); // inherited
 
+public slots:
+    void on_responseReady_ReadHoldingRegisters(const quint8 slaveId, const QVector<quint16>& registers);
+
+signals:
+
 private:
     // members
-    QModbusClient *mp_modbusDevice;
+    Csmrm*  mp_modbusMaster;
+    QTimer*  mp_pollTimer;
+
+private slots:
+    void on_pollTimeout();
 
 };
 

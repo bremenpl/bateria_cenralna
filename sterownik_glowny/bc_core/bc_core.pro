@@ -13,13 +13,18 @@ CONFIG -= app_bundle
 
 TEMPLATE = app
 
-INCLUDEPATH += ../bc_logger/
+INCLUDEPATH += ../bc_logger/ \
+               ../smrm/
 
 SOURCES += main.cpp \
     ../bc_logger/cbclogger.cpp \
-    cbcserialthread.cpp
+    ../smrm/csmrm.cpp \
+    cbcserialthread.cpp \
+    cbcmain.cpp
 
 HEADERS += \
     ../bc_logger/cbclogger.h \
+    ../smrm/csmrm.h \
     literals.h \
-    cbcserialthread.h
+    cbcserialthread.h \
+    cbcmain.h
