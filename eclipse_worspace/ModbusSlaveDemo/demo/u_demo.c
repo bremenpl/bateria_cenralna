@@ -59,10 +59,10 @@ mbsExCode_t mbs_CheckReadHoldingRegistersRequest(modbusFrame_t* mf)
 		return e_mbsExCode_illegalDataAddr;
 
 	// start address
-	uint16_t startAddr = mf->data[0] | ((uint16_t)mf->data[1] << 8);
+	uint16_t startAddr = mf->data[1] | ((uint16_t)mf->data[0] << 8);
 
 	// quantity of registers
-	uint16_t nrOfRegs = mf->data[2] | ((uint16_t)mf->data[3] << 8);
+	uint16_t nrOfRegs = mf->data[3] | ((uint16_t)mf->data[2] << 8);
 
 	// prevent reading wrong address
 	if (DEMO_REGISTER_ADDR !=  startAddr)
@@ -77,11 +77,11 @@ mbsExCode_t mbs_CheckReadHoldingRegistersRequest(modbusFrame_t* mf)
 	mf->dataLen = 3; // byte count + register value
 
 	// byte count
-	mf->data[0] = 1;
+	mf->data[0] = 2;
 
 	// register value:
-	mf->data[1] = (uint8_t)demo_registerValue;
-	mf->data[2] = (uint8_t)(demo_registerValue >> 8);
+	mf->data[1] = (uint8_t)(demo_registerValue >> 8);
+	mf->data[2] = (uint8_t)demo_registerValue;
 
 	// return no error
 	return e_mbsExCode_noError;

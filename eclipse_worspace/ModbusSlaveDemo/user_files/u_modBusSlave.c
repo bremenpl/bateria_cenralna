@@ -109,10 +109,10 @@ HAL_StatusTypeDef mbs_ExamineFuncCode(const uint8_t fCode, uint8_t** data_p, uin
 			break;
 		}
 
-		case e_mbFuncCode_WriteMultipleRegisters:
+		/*case e_mbFuncCode_WriteMultipleRegisters:
 		{
 			break;
-		}
+		}*/
 
 		default:
 		{
