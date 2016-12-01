@@ -59,6 +59,9 @@ CBcSerialThread::~CBcSerialThread()
 void CBcSerialThread::on_responseReady_ReadHoldingRegisters(const quint8 slaveId, const QVector<quint16>& registers)
 {
     CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "Read holding registers response arrived from slave %u", slaveId);
+
+    // now send the response to connected clients
+    emit statusChanged(registers.last());
 }
 
 /*!

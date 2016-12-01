@@ -20,11 +20,15 @@ SOURCES += main.cpp \
     ../bc_logger/cbclogger.cpp \
     ../smrm/csmrm.cpp \
     cbcserialthread.cpp \
-    cbcmain.cpp
+    cbcmain.cpp \
+    cbctcpserver.cpp \
+    cbcclientthread.cpp
 
 HEADERS += \
     ../bc_logger/cbclogger.h \
     ../smrm/csmrm.h \
     literals.h \
     cbcserialthread.h \
-    cbcmain.h
+    cbcmain.h \
+    cbctcpserver.h \
+    cbcclientthread.h

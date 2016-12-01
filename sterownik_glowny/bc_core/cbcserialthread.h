@@ -23,6 +23,7 @@ public slots:
     void on_responseReady_ReadHoldingRegisters(const quint8 slaveId, const QVector<quint16>& registers);
 
 signals:
+    void statusChanged(quint16 status); // temporary
 
 private:
     // members

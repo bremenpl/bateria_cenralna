@@ -38,6 +38,13 @@ CBcMain::CBcMain(QCoreApplication& coreApp, QObject *parent) : QObject(parent)
         return;
     }
 
+    // start TCP server
+    m_tcpServer.startServer();
+
+    // connect status change signal
+    connect(mp_serialThread, SIGNAL(statusChanged(quint16)),
+            &m_tcpServer, SLOT(on_modbusStatusChanged(quint16)), Qt::DirectConnection);
+
     // hang in here
     mp_coreApp->exec();
 }

@@ -11,6 +11,7 @@
 #include "literals.h"
 #include "cbclogger.h"
 #include "cbcserialthread.h"
+#include "cbctcpserver.h"
 
 class CBcMain : public QObject
 {
@@ -38,6 +39,8 @@ private:
     QString             m_serialName;       /*!< ModBus RTU master serial device name */
     CBcSerialThread*    mp_serialThread;    /*!< Serial thread used for handling modbus */
     QCoreApplication*   mp_coreApp;         /*!< Pointer to the core application object */
+
+    CBcTcpServer        m_tcpServer;        /*!< TCP server responsilble for gui clients communication */
 };
 
 #endif // CBCMAIN_H
