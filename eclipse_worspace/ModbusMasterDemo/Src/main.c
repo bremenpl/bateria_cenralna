@@ -97,8 +97,7 @@ int main(void)
 
   /* USER CODE BEGIN 2 */
 
-  mbm_Init(&huart2);
-  mbm_RequestReadHoldingRegs(5, 0, 1);
+  mbm_Init(&huart2, 3000);
 
   /* USER CODE END 2 */
 

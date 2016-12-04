@@ -25,31 +25,40 @@ static mbgUart_t mbm_uart;
 static mbgRxState_t mbm_rxState;
 static mbgFrame_t mbm_sentFrame;
 
+static uint32_t mbm_RespTimeout_ms;
+static osMessageQId mbm_msgQId_rxTimeout;
+static osThreadId mbm_sysId_rxTimeout;
+
 /* Public variables ----------------------------------------------------------*/
 
 /* Fuction prototypes --------------------------------------------------------*/
 void mbm_task_rxDequeue(void const* argument);
+void mbm_task_rxTimeout(void const* argument);
 HAL_StatusTypeDef mbm_ExamineFuncCode(const uint8_t fCode, uint8_t** data_p, uint32_t* len);
 HAL_StatusTypeDef mbm_ExamineData(const mbgFrame_t* const mf,
 								  uint8_t** data_p,
 								  uint32_t* len);
+HAL_StatusTypeDef mbm_RespTimeoutRestart();
+HAL_StatusTypeDef mbm_RespTimeoutStop();
 
 /* Function declarations -----------------------------------------------------*/
 
 /*
  * @brief	Initializes the MODBUS Master controller.
  * @param	uartHandle: pointer to a uart HAL handle struct.
+ * @param	respTimeout_ms: Response awaiting timeout [ms]
  * @return	HAL_OK if initialization was succesfull.
  */
-HAL_StatusTypeDef mbm_Init(UART_HandleTypeDef* uartHandle)
+HAL_StatusTypeDef mbm_Init(UART_HandleTypeDef* uartHandle, uint32_t respTimeout_ms)
 {
 	if (!uartHandle)
 		return HAL_ERROR;
 
 	HAL_StatusTypeDef retVal = HAL_OK;
 
-	// assign handle, initialize uart
+	// assign handle, timeout, initialize uart
 	mbm_uart.handle = uartHandle;
+	mbm_RespTimeout_ms = respTimeout_ms;
 	retVal += mbg_UartInit(&mbm_uart);
 
 	// create slave response reception queue.
@@ -68,7 +77,22 @@ HAL_StatusTypeDef mbm_Init(UART_HandleTypeDef* uartHandle)
 	if (!mbm_sysId_rX)
 		retVal++;
 
-	// defaulr rx state
+	// create slave response timeout queue
+	msgDef_temp.item_sz = sizeof(uint32_t);
+	msgDef_temp.queue_sz = 1;
+
+	// create the queue
+	mbm_msgQId_rxTimeout = osMessageCreate(&msgDef_temp, NULL);
+	if (!mbm_msgQId_rxTimeout)
+		retVal++;
+
+	// create thread for dequeuing
+	osThreadDef(mbmRxTimTask, mbm_task_rxTimeout, osPriorityHigh, 0, 128);
+	mbm_sysId_rxTimeout = osThreadCreate(osThread(mbmRxTimTask), NULL);
+	if (!mbm_sysId_rxTimeout)
+		retVal++;
+
+	// default rx state
 	mbm_rxState = e_mbsRxState_none;
 
 	return retVal;
@@ -110,7 +134,8 @@ HAL_StatusTypeDef mbm_RequestReadHoldingRegs(uint8_t slaveAddr,
 		return HAL_ERROR;
 	}
 
-	return HAL_OK;
+	// start response timeout timer
+	return mbm_RespTimeoutRestart();
 }
 
 /*
@@ -183,7 +208,7 @@ HAL_StatusTypeDef mbm_ExamineData(const mbgFrame_t* const mf,
 			// check if byte count equals No. of registers
 			uint16_t noOfRegs = (mbm_sentFrame.data[2] << 8) | mbm_sentFrame.data[3];
 			if (((uint16_t)mf->data[0] / 2) != noOfRegs)
-				goto badData;
+				goto label_badData;
 			else
 			{
 				// crc stage
@@ -195,7 +220,7 @@ HAL_StatusTypeDef mbm_ExamineData(const mbgFrame_t* const mf,
 
 		default:
 		{
-			badData:
+			label_badData:
 			// same principle as for 1st byte
 			*data_p = &mbm_rxFrames[mbm_rxFramesIndex].code;
 			*len = MBG_MAX_DATA_LEN + 3;
@@ -335,8 +360,12 @@ void mbm_uartRxRoutine(UART_HandleTypeDef* uHandle)
  */
 void mbm_task_rxDequeue(void const* argument)
 {
+	// TODO temp
+	mbm_RequestReadHoldingRegs(5, 0, 1);
+
 	osEvent retEvent;
 	mbgFrame_t* mf;
+	uint16_t calcCrc;
 
 	while (1)
 	{
@@ -347,12 +376,15 @@ void mbm_task_rxDequeue(void const* argument)
 		 */
 		retEvent = osMessagePeek(mbm_msgQId_rX, osWaitForever);
 
+		// turn off response timeout timer
+		mbm_RespTimeoutStop();
+
 		if (retEvent.status == osEventMessage)
 		{
 			mf = (mbgFrame_t*)retEvent.value.p;
 
 			// validate crc
-			if (!mbg_CheckCrc(mf))
+			if (!mbg_CheckCrc(mf, &calcCrc))
 			{
 				// crc OK, proceed. Check function code
 				switch (mf->code)
@@ -375,9 +407,54 @@ void mbm_task_rxDequeue(void const* argument)
 				}
 			}
 
+			// CRC mismatch
+			else
+				mbm_RespCrcMatchError(mf->crc, calcCrc);
+
 			// finally remove the item from the queue. No need to check if there is
 			// any message, because this thread is the only dequeuer.
 			osMessageGet(mbm_msgQId_rX, osWaitForever);
+		}
+	}
+}
+
+/*
+ * @brief	Response timeout thread
+ */
+void mbm_task_rxTimeout(void const* argument)
+{
+	osEvent retEvent;
+	uint32_t timeout_ms;
+
+	while (1)
+	{
+		// first wait for timeout information (forever)
+		retEvent = osMessageGet(mbm_msgQId_rxTimeout, osWaitForever);
+
+		if (osEventMessage == retEvent.status)
+		{
+			// obtain the required timeout
+			timeout_ms = retEvent.value.v;
+
+			// waiting for timeout starts here
+			label_respTimeoutWait:
+
+			// wait for the required timeout
+			retEvent = osMessageGet(mbm_msgQId_rxTimeout, timeout_ms);
+
+			// timeout occured
+			if (osEventTimeout == retEvent.status)
+				mbm_uartRxTimeoutRoutine(mbm_uart.handle);
+
+			// timeout restart occured
+			else if (retEvent.status == osEventMessage)
+			{
+				if (retEvent.value.v)
+				{
+					timeout_ms = retEvent.value.v;
+					goto label_respTimeoutWait;
+				}
+			}
 		}
 	}
 }
@@ -412,6 +489,24 @@ void mbm_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle)
 
 	// debug
 	HAL_GPIO_TogglePin(GPIOA, 1 << 5);
+}
+
+/*
+ * @brief	(Re)Starts the response timeout timer.
+ */
+HAL_StatusTypeDef mbm_RespTimeoutRestart()
+{
+	return (HAL_StatusTypeDef)osMessagePut(
+			mbm_msgQId_rxTimeout,mbm_RespTimeout_ms, osWaitForever);
+}
+
+/*
+ * @brief	Stop the response timeout timer.
+ */
+HAL_StatusTypeDef mbm_RespTimeoutStop()
+{
+	return (HAL_StatusTypeDef)osMessagePut(
+			mbm_msgQId_rxTimeout, 0,osWaitForever);
 }
 
 // overrides
@@ -453,6 +548,13 @@ __attribute__((weak)) void mbm_RespParseError() { }
  */
 __attribute__((weak)) void mbm_RespRxTimeoutError(mbgRxState_t state,
 												  const mbgFrame_t* const mf) { }
+
+/*
+ * @brief	Function is called when the response frame crc doesnt match the calculated one.
+ * @param	rcvCrc: The crc that came with the response.
+ * @param	calcCrc: Calculated crc.
+ */
+__attribute__((weak)) void mbm_RespCrcMatchError(uint16_t rcvCrc, uint16_t calcCrc) { }
 
 /*
  * @brief	The default read holding registers response function.

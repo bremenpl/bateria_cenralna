@@ -78,9 +78,10 @@ uint16_t mbg_CalculateCrc2(uint8_t* data, size_t len)
  * @brief	Function calculates the crc of provided \ref mf frame
  * 			and compares it to the crc of it.
  * @param	mf: pointer to a modbus frame.
+ * @param	crc: under this pointer calculated crc is saved if address is not 0
  * @return	HAL_OK if calculated crc and \ref mf crc match.
  */
-HAL_StatusTypeDef mbg_CheckCrc(const mbgFrame_t* const mf)
+HAL_StatusTypeDef mbg_CheckCrc(const mbgFrame_t* const mf, uint16_t* crc)
 {
 	if (!mf)
 		return HAL_ERROR;
@@ -104,6 +105,10 @@ HAL_StatusTypeDef mbg_CheckCrc(const mbgFrame_t* const mf)
 	// Calculate crc
 	uint16_t calcCrc = mbg_CalculateCrc2(buf, i);
 	calcCrc = (calcCrc >> 8) | (calcCrc << 8); // swap back
+
+	// save calculated crc
+	if (crc)
+		*crc = calcCrc;
 
 	// check match
 	if (calcCrc != mf->crc)

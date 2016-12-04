@@ -287,7 +287,7 @@ void mbs_task_rxDequeue(void const* argument)
 			mf = (mbgFrame_t*)retEvent.value.p;
 
 			// validate crc
-			if (!mbg_CheckCrc(mf))
+			if (!mbg_CheckCrc(mf, 0))
 			{
 				// crc OK, proceed. Check function code
 				switch (mf->code)

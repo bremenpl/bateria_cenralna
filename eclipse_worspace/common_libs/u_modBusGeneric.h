@@ -113,7 +113,7 @@ typedef struct
 
 /* Fuction prototypes --------------------------------------------------------*/
 HAL_StatusTypeDef mbg_UartInit(mbgUart_t* uart);
-HAL_StatusTypeDef mbg_CheckCrc(const mbgFrame_t* const mf);
+HAL_StatusTypeDef mbg_CheckCrc(const mbgFrame_t* const mf, uint16_t* crc);
 HAL_StatusTypeDef mbg_SendFrame(mbgUart_t* uart, mbgFrame_t* mf);
 void mbg_EnableRxTimeout(UART_HandleTypeDef* uHandle);
 void mbg_DisableRxTimeout(UART_HandleTypeDef* uHandle);
