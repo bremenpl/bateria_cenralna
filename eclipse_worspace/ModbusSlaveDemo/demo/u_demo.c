@@ -53,7 +53,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 /*
  * @brief	Demo override function for reading holding registers
  */
-mbsExCode_t mbs_CheckReadHoldingRegistersRequest(modbusFrame_t* mf)
+mbgExCode_t mbs_CheckReadHoldingRegistersRequest(mbgFrame_t* mf)
 {
 	if (!mf)
 		return e_mbsExCode_illegalDataAddr;

@@ -18,12 +18,12 @@
 
 static osMessageQId mbs_msgQId_rX;
 static osThreadId mbs_sysId_rX;
-static modbusFrame_t mbs_rxFrames[MBS_RCV_QUEUE_SIZE];
+static mbgFrame_t mbs_rxFrames[MBS_RCV_QUEUE_SIZE];
 static uint32_t mbs_rxFramesIndex;
 
-static UART_HandleTypeDef* mbs_uartHandle;
+static mbgUart_t mbs_uart;
 static uint8_t mbs_address;
-static mbsRxState_t mbs_rxState;
+static mbgRxState_t mbs_rxState;
 
 /* Public variables ----------------------------------------------------------*/
 
@@ -41,8 +41,6 @@ HAL_StatusTypeDef mbs_ExamineFuncCode(const uint8_t fCode, uint8_t** data_p, uin
  */
 HAL_StatusTypeDef mbs_Init(UART_HandleTypeDef* uartHandle, uint8_t address)
 {
-	// check pointer
-	assert_param(uartHandle);
 	if (!uartHandle)
 		return HAL_ERROR;
 
@@ -53,14 +51,14 @@ HAL_StatusTypeDef mbs_Init(UART_HandleTypeDef* uartHandle, uint8_t address)
 	HAL_StatusTypeDef retVal = HAL_OK;
 
 	// assign handle, address, initialize uart
-	mbs_uartHandle = uartHandle;
+	mbs_uart.handle = uartHandle;
 	mbs_address = address;
-	retVal += mbg_UartInit(mbs_uartHandle);
+	retVal += mbg_UartInit(&mbs_uart);
 
 	// create master requests reception queue. In theory one item queue should be enough.
 	// Add some buffer just to be sure.
 	osMessageQDef_t msgDef_temp;
-	msgDef_temp.item_sz = sizeof(modbusFrame_t*);
+	msgDef_temp.item_sz = sizeof(mbgFrame_t*);
 	msgDef_temp.queue_sz = MBS_RCV_QUEUE_SIZE;
 
 	// create the queue
@@ -77,8 +75,7 @@ HAL_StatusTypeDef mbs_Init(UART_HandleTypeDef* uartHandle, uint8_t address)
 	// defaulr rx state
 	mbs_rxState = e_mbsRxState_addr;
 
-	assert_param(!retVal);
-	return HAL_OK;
+	return retVal;
 }
 
 /*
@@ -135,12 +132,9 @@ HAL_StatusTypeDef mbs_ExamineFuncCode(const uint8_t fCode, uint8_t** data_p, uin
  * @param	exCode: Exception code of type \ref mbsExCode_t.
  * @return
  */
-HAL_StatusTypeDef mbs_SendErrorResponse(modbusFrame_t* mf, mbsExCode_t exCode)
+HAL_StatusTypeDef mbs_SendErrorResponse(mbgFrame_t* mf, mbgExCode_t exCode)
 {
-	if (!mbs_uartHandle)
-		return HAL_ERROR;
-
-	if (!mf)
+	if (!mbs_uart.handle || !mf)
 		return HAL_ERROR;
 
 	// modify function code (becomes error code)
@@ -153,7 +147,7 @@ HAL_StatusTypeDef mbs_SendErrorResponse(modbusFrame_t* mf, mbsExCode_t exCode)
 	mf->dataLen = 1;
 
 	// send the data and return
-	return mbg_SendFrame(mbs_uartHandle, mf);
+	return mbg_SendFrame(&mbs_uart, mf);
 }
 
 /*
@@ -165,7 +159,7 @@ HAL_StatusTypeDef mbs_SendErrorResponse(modbusFrame_t* mf, mbsExCode_t exCode)
 void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle)
 {
 	// check either pointer is proper
-	if (uHandle != mbs_uartHandle)
+	if (uHandle != mbs_uart.handle)
 		return;
 
 	// define operational vars, set default values
@@ -253,20 +247,17 @@ void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle)
 void mbs_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle)
 {
 	// check either pointer is proper
-	if (uHandle != mbs_uartHandle)
+	if (uHandle != mbs_uart.handle)
 		return;
 
 	// We are in t3.5 rx timeout routine,
 	// meaning modbus frame has to be gathered from the beginning.
 
 	// Enable receiver but without rx timeout, wait forever for the 1st address byte
-	mbg_EnableReceiver(mbs_uartHandle, &mbs_rxFrames[mbs_rxFramesIndex].addr, 1, 0);
+	mbg_EnableReceiver(mbs_uart.handle, &mbs_rxFrames[mbs_rxFramesIndex].addr, 1, 0);
 
 	// set rxState to the beginning
 	mbs_rxState = e_mbsRxState_addr;
-
-	// debug
-	//HAL_GPIO_TogglePin(GPIOA, 1 << 5);
 }
 
 /*
@@ -276,11 +267,11 @@ void mbs_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle)
 void mbs_task_rxDequeue(void const* argument)
 {
 	// Initially enable receiver for the 1st address byte, no rx timeout
-	mbg_EnableReceiver(mbs_uartHandle, &mbs_rxFrames[mbs_rxFramesIndex].addr, 1, 0);
+	mbg_EnableReceiver(mbs_uart.handle, &mbs_rxFrames[mbs_rxFramesIndex].addr, 1, 0);
 
 	osEvent retEvent;
-	mbsExCode_t exCode;
-	modbusFrame_t* mf;
+	mbgExCode_t exCode;
+	mbgFrame_t* mf;
 
 	while (1)
 	{
@@ -293,7 +284,7 @@ void mbs_task_rxDequeue(void const* argument)
 
 		if (retEvent.status == osEventMessage)
 		{
-			mf = (modbusFrame_t*)retEvent.value.p;
+			mf = (mbgFrame_t*)retEvent.value.p;
 
 			// validate crc
 			if (!mbg_CheckCrc(mf))
@@ -309,10 +300,7 @@ void mbs_task_rxDequeue(void const* argument)
 
 					// for unknown function ILLEGAL FUNCTION error answer code
 					// has to be sent
-					default:
-					{
-						exCode = e_mbsExCode_illegalFunction;
-					}
+					default: exCode = e_mbsExCode_illegalFunction;
 				}
 
 				// if exception code set, send error response
@@ -322,15 +310,12 @@ void mbs_task_rxDequeue(void const* argument)
 				// otherwise standard response.
 				// Override func has to fill mf with data.
 				else
-					mbg_SendFrame(mbs_uartHandle, mf);
+					mbg_SendFrame(&mbs_uart, mf);
 			}
 
 			// finally remove the item from the queue. No need to check if there is
 			// any message, because this thread is the only dequeuer.
 			osMessageGet(mbs_msgQId_rX, osWaitForever);
-
-			// debug
-			//HAL_GPIO_TogglePin(GPIOA, 1 << 5);
 		}
 	}
 }
@@ -343,7 +328,7 @@ void mbs_task_rxDequeue(void const* argument)
  * @param	mf: pointer to a modbus frame struct.
  * @return  exception code, 0 if function executed properly.
  */
-__attribute__((weak))  mbsExCode_t mbs_CheckReadHoldingRegistersRequest(modbusFrame_t* mf)
+__attribute__((weak)) mbgExCode_t mbs_CheckReadHoldingRegistersRequest(mbgFrame_t* mf)
 {
 	return e_mbsExCode_illegalDataAddr;
 }
