@@ -15,8 +15,8 @@
 
 
 /* Includes ------------------------------------------------------------------*/
-#ifdef STM32F030x8
-#include "stm32f0xx_hal.h"
+#if defined(STM32F030x8) || defined(STM32F091xC)
+	#include "stm32f0xx_hal.h"
 #endif
 
 #include "cmsis_os.h"
@@ -55,6 +55,34 @@ typedef enum
 } modbusFuncCode_t;
 
 /*
+ * @brief	Machine state used for frames parsing during reception
+ */
+typedef enum
+{
+	e_mbsRxState_none				= 0,
+	e_mbsRxState_addr,
+	e_mbsRxState_funcCode,
+	e_mbsRxState_data,
+	e_mbsRxState_crc,
+} mbgRxState_t;
+
+/*
+ * @brief	Slave replies exception codes
+ */
+typedef enum
+{
+	e_mbsExCode_noError				= 0, // used only for validation, not to be sent
+	e_mbsExCode_illegalFunction		= 0x01,
+	e_mbsExCode_illegalDataAddr		= 0x02,
+	e_mbsExCode_illegalDataValue	= 0x03,
+	e_mbsExCode_slaveDeviceFailure	= 0x04,
+	e_mbsExCode_acknowledge			= 0x05,
+	e_mbsExCode_slaveDeviceBusy		= 0x06,
+	e_mbsExCode_memoryParityError	= 0x08,
+
+} mbgExCode_t;
+
+/*
  * @brief	Structure representing single ModBus frame. The struct is optimised
  * 			for 32 bit padding (size should be 258 bytes).
  */
@@ -65,16 +93,28 @@ typedef struct
 	uint16_t		dataLen;				/*!< Data field length of the frame */
 	uint8_t			data[MBG_MAX_DATA_LEN];	/*!< Raw data */
 	uint16_t		crc;					/*!< CRC code */
-} modbusFrame_t;
+} mbgFrame_t;
+
+
+typedef struct
+{
+	UART_HandleTypeDef* handle;					/*!< Pointer to a uart struct */
+	osMutexId			txMut;					/*!< Transfer mutex for the uart */
+	uint8_t 			buf[MBG_MAX_FRAME_LEN];	/*!< Operations buffer (tx and rx) */
+	uint32_t			len;					/*!< Actual buffer size */
+} mbgUart_t;
+
 
 /* Private variables ---------------------------------------------------------*/
 
 /* Public variables ----------------------------------------------------------*/
 
+// IMPORTANT: Modbus generic module should not have any public variables.
+
 /* Fuction prototypes --------------------------------------------------------*/
-HAL_StatusTypeDef mbg_UartInit(UART_HandleTypeDef* uHandle);
-HAL_StatusTypeDef mbg_CheckCrc(const modbusFrame_t* const mf);
-HAL_StatusTypeDef mbg_SendFrame(UART_HandleTypeDef* uHandle, modbusFrame_t* mf);
+HAL_StatusTypeDef mbg_UartInit(mbgUart_t* uart);
+HAL_StatusTypeDef mbg_CheckCrc(const mbgFrame_t* const mf);
+HAL_StatusTypeDef mbg_SendFrame(mbgUart_t* uart, mbgFrame_t* mf);
 void mbg_EnableRxTimeout(UART_HandleTypeDef* uHandle);
 void mbg_DisableRxTimeout(UART_HandleTypeDef* uHandle);
 void mbg_ClearRTOCF_Flag(UART_HandleTypeDef* uHandle);
@@ -84,6 +124,8 @@ HAL_StatusTypeDef mbg_EnableReceiver(UART_HandleTypeDef* uHandle,
 // overrides
 void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle);
 void mbm_uartRxRoutine(UART_HandleTypeDef* uHandle);
+void mbs_uartTxRoutine(UART_HandleTypeDef* uHandle);
+void mbm_uartTxRoutine(UART_HandleTypeDef* uHandle);
 
 void mbs_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle);
 void mbm_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle);
