@@ -25,3 +25,10 @@ HEADERS  += mainwindow.h \
         ../bc_logger/cbclogger.h \
 
 FORMS    += mainwindow.ui
+
+TRANSLATIONS    +=  bcclient_en.ts \
+                    bcclient_pl.ts
+
+
+
+
