@@ -1,0 +1,27 @@
+<RCC>
+    <qresource prefix="/">
+        <file>graphics/devices.png</file>
+        <file>bc_client.pro</file>
+        <file>bcclient_en.qm</file>
+        <file>bcclient_en.ts</file>
+        <file>bcclient_pl.qm</file>
+        <file>bcclient_pl.ts</file>
+        <file>cdevicedialog.cpp</file>
+        <file>cdevicedialog.h</file>
+        <file>cdevicedialog.ui</file>
+        <file>cmainmenu.cpp</file>
+        <file>cmainmenu.h</file>
+        <file>cmainmenu.ui</file>
+        <file>main.cpp</file>
+        <file>mainwindow.cpp</file>
+        <file>mainwindow.h</file>
+        <file>mainwindow.ui</file>
+        <file>resources.qrc</file>
+        <file>graphics/schedule.png</file>
+        <file>graphics/logs.png</file>
+        <file>graphics/settings.png</file>
+        <file>graphics/settings_network.png</file>
+        <file>graphics/settings_access.png</file>
+        <file>graphics/settings_lang.png</file>
+    </qresource>
+</RCC>

@@ -38,6 +38,7 @@ private:
 
     QSettings*      mp_settings;        /*!< Settings file object */
     QString         m_settingsPath;     /*!< Setting file name with path */
+
     QTcpSocket*     mp_tcpSocket;
 };
 

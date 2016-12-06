@@ -19,15 +19,27 @@ INCLUDEPATH += ../bc_logger/
 
 SOURCES += main.cpp\
         ../bc_logger/cbclogger.cpp \
-        mainwindow.cpp
+        mainwindow.cpp \
+    cdevicedialog.cpp \
+    cmainmenu.cpp \
+    csettingsmenu.cpp
 
 HEADERS  += mainwindow.h \
         ../bc_logger/cbclogger.h \
+    cdevicedialog.h \
+    cmainmenu.h \
+    csettingsmenu.h
 
-FORMS    += mainwindow.ui
+FORMS    += mainwindow.ui \
+    cdevicedialog.ui \
+    cmainmenu.ui \
+    csettingsmenu.ui
 
 TRANSLATIONS    +=  bcclient_en.ts \
                     bcclient_pl.ts
+
+RESOURCES += \
+    resources.qrc
 
 
 
