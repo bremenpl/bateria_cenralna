@@ -36,6 +36,7 @@
      </property>
      <property name="font">
       <font>
+       <family>DejaVu Sans</family>
        <pointsize>14</pointsize>
       </font>
      </property>
@@ -81,6 +82,7 @@ Settings</string>
      </property>
      <property name="font">
       <font>
+       <family>DejaVu Sans</family>
        <pointsize>14</pointsize>
       </font>
      </property>
@@ -126,6 +128,7 @@ Settings</string>
      </property>
      <property name="font">
       <font>
+       <family>DejaVu Sans</family>
        <pointsize>14</pointsize>
       </font>
      </property>

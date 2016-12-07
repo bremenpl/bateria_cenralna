@@ -1,14 +1,20 @@
 #include "cdevicedialog.h"
 #include "ui_cdevicedialog.h"
 
-CDeviceDialog::CDeviceDialog(QWidget *parent) : QDialog(parent), ui(new Ui::CDeviceDialog)
+CDeviceDialog::CDeviceDialog(QWidget *parent) : CAbstractMenu(parent), ui(new Ui::CDeviceDialog)
 {
     ui->setupUi(this);
 
-
+    // set the menu name
+    m_menuName = "Devices Menu";
 }
 
 CDeviceDialog::~CDeviceDialog()
 {
     delete ui;
+}
+
+void CDeviceDialog::on_pbDevicesBatteries_clicked()
+{
+    emit signal_BtnClicked(EBtnTypes::Batteries);
 }

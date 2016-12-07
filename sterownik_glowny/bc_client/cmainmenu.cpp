@@ -1,12 +1,12 @@
 #include "cmainmenu.h"
 #include "ui_cmainmenu.h"
-#include "csettingsmenu.h"
 
-CMainMenu::CMainMenu(QWidget *parent) : QDialog(parent), ui(new Ui::CMainMenu)
+CMainMenu::CMainMenu(QWidget *parent) : CAbstractMenu(parent), ui(new Ui::CMainMenu)
 {
     ui->setupUi(this);
 
-    // assign parent
+    // set the menu name
+    m_menuName = "Main Menu";
 }
 
 CMainMenu::~CMainMenu()
@@ -16,5 +16,10 @@ CMainMenu::~CMainMenu()
 
 void CMainMenu::on_pbSettings_clicked()
 {
+    emit signal_BtnClicked(EBtnTypes::Settings);
+}
 
+void CMainMenu::on_pbDevices_clicked()
+{
+    emit signal_BtnClicked(EBtnTypes::Devices);
 }

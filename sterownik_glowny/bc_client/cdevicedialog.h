@@ -3,11 +3,13 @@
 
 #include <QDialog>
 
+#include "cabstractmenu.h"
+
 namespace Ui {
 class CDeviceDialog;
 }
 
-class CDeviceDialog : public QDialog
+class CDeviceDialog : public CAbstractMenu
 {
     Q_OBJECT
 
@@ -15,8 +17,12 @@ public:
     explicit CDeviceDialog(QWidget *parent = 0);
     ~CDeviceDialog();
 
+private slots:
+    void on_pbDevicesBatteries_clicked();
+
 private:
     Ui::CDeviceDialog *ui;
+
 };
 
 #endif // CDEVICEDIALOG_H

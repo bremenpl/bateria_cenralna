@@ -3,11 +3,13 @@
 
 #include <QDialog>
 
+#include "cabstractmenu.h"
+
 namespace Ui {
 class CSettingsMenu;
 }
 
-class CSettingsMenu : public QDialog
+class CSettingsMenu : public CAbstractMenu
 {
     Q_OBJECT
 
@@ -17,6 +19,8 @@ public:
 
 private:
     Ui::CSettingsMenu *ui;
+
+
 };
 
 #endif // CSETTINGSMENU_H

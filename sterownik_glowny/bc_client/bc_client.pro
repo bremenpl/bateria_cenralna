@@ -22,18 +22,25 @@ SOURCES += main.cpp\
         mainwindow.cpp \
     cdevicedialog.cpp \
     cmainmenu.cpp \
-    csettingsmenu.cpp
+    csettingsmenu.cpp \
+    cabstractmenu.cpp \
+    cbatteriesmenu.cpp
 
 HEADERS  += mainwindow.h \
         ../bc_logger/cbclogger.h \
     cdevicedialog.h \
     cmainmenu.h \
-    csettingsmenu.h
+    csettingsmenu.h \
+    types.h \
+    cabstractmenu.h \
+    cbatteriesmenu.h
 
 FORMS    += mainwindow.ui \
     cdevicedialog.ui \
     cmainmenu.ui \
-    csettingsmenu.ui
+    csettingsmenu.ui \
+    cabstractmenu.ui \
+    cbatteriesmenu.ui
 
 TRANSLATIONS    +=  bcclient_en.ts \
                     bcclient_pl.ts

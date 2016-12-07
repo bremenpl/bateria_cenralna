@@ -3,13 +3,14 @@
 
 #include <QDialog>
 #include <QMainWindow>
-#include "mainwindow.h"
+
+#include "cabstractmenu.h"
 
 namespace Ui {
 class CMainMenu;
 }
 
-class CMainMenu : public QDialog
+class CMainMenu : public CAbstractMenu
 {
     Q_OBJECT
 
@@ -20,10 +21,10 @@ public:
 private slots:
     void on_pbSettings_clicked();
 
+    void on_pbDevices_clicked();
+
 private:
     Ui::CMainMenu *ui;
-
-    Ui::MainWindow*    mp_mainWindow;      /*!< Main window parent */
 };
 
 #endif // CMAINMENU_H
