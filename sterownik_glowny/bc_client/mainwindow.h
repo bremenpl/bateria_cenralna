@@ -12,6 +12,9 @@
 #include "csettingsmenu.h"
 #include "cdevicedialog.h"
 #include "cbatteriesmenu.h"
+#include "citemslcmenu.h"
+#include "cprelcpanel.h"
+#include "citemsrcmenu.h"
 
 #include "types.h"
 
@@ -38,6 +41,7 @@ public slots:
     void on_tcpSocketReadyRead();
 
     void on_MenuBtnClicked(const EBtnTypes btn);
+    void on_DeviceSelected(const EDeviceTypes deviceType, const int slaveAddr);
 
 private slots:
     void on_tbMain_currentChanged(int index);
@@ -60,7 +64,12 @@ private:
     CMainMenu*      mp_mainMenu;
     CSettingsMenu*  mp_settingsMenu;
     CDeviceDialog*  mp_devicesMenu;
-    CBatteriesMenu* mp_batMenu;
+    CItemsLcMenu*   mp_lineCtrlsMenu;
+
+    CPreLcPanel*    mp_preLineCtrlPanel;
+    int             m_curLineCtrler;
+
+    CItemsRcMenu*    mp_relayCtrlsMenu;
 
     QTcpSocket*     mp_tcpSocket;
 };

@@ -28,7 +28,11 @@ SOURCES += main.cpp\
     csettingsmenu.cpp \
     cabstractmenu.cpp \
     cbatteriesmenu.cpp \
-    keyboard/keyboard.cpp
+    keyboard/keyboard.cpp \
+    citemsmenu.cpp \
+    citemslcmenu.cpp \
+    cprelcpanel.cpp \
+    citemsrcmenu.cpp
 
 HEADERS  += mainwindow.h \
     ../bc_logger/cbclogger.h \
@@ -39,7 +43,11 @@ HEADERS  += mainwindow.h \
     cabstractmenu.h \
     cbatteriesmenu.h \
     keyboard/keyboard.h \
-    keyboard/ui_keyboard.h
+    keyboard/ui_keyboard.h \
+    citemsmenu.h \
+    citemslcmenu.h \
+    cprelcpanel.h \
+    citemsrcmenu.h
 
 FORMS    += mainwindow.ui \
     cdevicedialog.ui \
@@ -47,7 +55,9 @@ FORMS    += mainwindow.ui \
     csettingsmenu.ui \
     cabstractmenu.ui \
     cbatteriesmenu.ui \
-    keyboard/keyboard.ui
+    keyboard/keyboard.ui \
+    citemsmenu.ui \
+    cprelcpanel.ui
 
 TRANSLATIONS    +=  bcclient_en.ts \
                     bcclient_pl.ts

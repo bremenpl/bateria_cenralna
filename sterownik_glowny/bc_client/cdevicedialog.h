@@ -20,6 +20,8 @@ public:
 private slots:
     void on_pbDevicesBatteries_clicked();
 
+    void on_pbDevicesLineControllers_clicked();
+
 private:
     Ui::CDeviceDialog *ui;
 

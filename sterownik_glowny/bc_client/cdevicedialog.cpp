@@ -18,3 +18,8 @@ void CDeviceDialog::on_pbDevicesBatteries_clicked()
 {
     emit signal_BtnClicked(EBtnTypes::Batteries);
 }
+
+void CDeviceDialog::on_pbDevicesLineControllers_clicked()
+{
+    emit signal_BtnClicked(EBtnTypes::LineControllers);
+}

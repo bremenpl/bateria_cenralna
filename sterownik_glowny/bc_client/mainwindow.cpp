@@ -8,8 +8,10 @@ MainWindow::MainWindow(QWidget *parent) :
     // clear unused pointers and assign zero values
     mp_settingsMenu = NULL;
     mp_devicesMenu = NULL;
-    mp_batMenu = NULL;
+    mp_lineCtrlsMenu = NULL;
     mp_tcpSocket = NULL;
+    mp_preLineCtrlPanel = NULL;
+    m_curLineCtrler = 0;
     m_youngestTabIndex = -1;
     m_virtKeyboardOn = true;
 
@@ -186,11 +188,19 @@ void MainWindow::on_MenuBtnClicked(const EBtnTypes btn)
             break;
         }
 
-        case EBtnTypes::Batteries:
+        case EBtnTypes::LineControllers:
         {
-            mp_batMenu = new CBatteriesMenu(this);
-            ui->tbMain->addTab(mp_batMenu, "Battery");
-            ui->tbMain->setCurrentIndex((ui->tbMain->indexOf(mp_batMenu)));
+            mp_lineCtrlsMenu = new CItemsLcMenu(this);
+            ui->tbMain->addTab(mp_lineCtrlsMenu, "Line\nCtrls");
+            ui->tbMain->setCurrentIndex((ui->tbMain->indexOf(mp_lineCtrlsMenu)));
+            break;
+        }
+
+        case EBtnTypes::RelayControllers:
+        {
+            mp_relayCtrlsMenu = new CItemsRcMenu(this);
+            ui->tbMain->addTab(mp_relayCtrlsMenu, "Relay\nCtrls");
+            ui->tbMain->setCurrentIndex((ui->tbMain->indexOf(mp_relayCtrlsMenu)));
             break;
         }
 
@@ -200,6 +210,38 @@ void MainWindow::on_MenuBtnClicked(const EBtnTypes btn)
                      << "Unknown submenu button clicked with number " << (quint32)btn;
         }
     }
+}
+
+/*!
+ * \brief MainWindow::on_DeviceSelected: Slot run when user selects a device in on of the children forms
+ * \param deviceType: Type of selected modbus device
+ * \param slaveAddr: modbus slave address
+ */
+void MainWindow::on_DeviceSelected(const EDeviceTypes deviceType, const int slaveAddr)
+{
+    switch (deviceType)
+    {
+        case EDeviceTypes::LineCtrler:
+        {
+            // save slave addr for later use
+            m_curLineCtrler = slaveAddr;
+            QString name = "LC " + QString::number(m_curLineCtrler);
+
+            mp_preLineCtrlPanel = new CPreLcPanel(this);
+            ui->tbMain->addTab(mp_preLineCtrlPanel, name);
+            ui->tbMain->setCurrentIndex((ui->tbMain->indexOf(mp_preLineCtrlPanel)));
+            break;
+        }
+
+        default:
+        {
+            CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
+                    << "Unknown device selected: " << (quint32)deviceType;
+        }
+    }
+
+    CBcLogger::instance()->print(MLL::ELogLevel::LDebug,
+                                 "Device of type %u with addr %u selected", (int)deviceType, slaveAddr);
 }
 
 /*!
@@ -233,6 +275,7 @@ void MainWindow::on_tbMain_currentChanged(int index)
     CBcLogger::instance()->print(MLL::ELogLevel::LInfo)
             << currentMenuObject(index)->menuName() << " opened";
 }
+
 
 void MainWindow::on_tcpSocketConnected()
 {

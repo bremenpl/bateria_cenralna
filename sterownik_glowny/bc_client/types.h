@@ -9,6 +9,15 @@ enum class EBtnTypes
     Logs,
     Settings,
     Batteries,
+    LineControllers,
+    RelayControllers,
+};
+
+enum class EDeviceTypes
+{
+    Dummy,
+    LineCtrler,
+    RelayCtrler,
 };
 
 

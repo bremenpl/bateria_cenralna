@@ -13,5 +13,9 @@
         <file>graphics/settings_lang.png</file>
         <file>graphics/devices_battery.png</file>
         <file>graphics/devices_powersupply.png</file>
+        <file>graphics/devices_charger.png</file>
+        <file>graphics/devices_linectrl.png</file>
+        <file>graphics/prepanel_info.png</file>
+        <file>graphics/prepanel_bulb.png</file>
     </qresource>
 </RCC>
