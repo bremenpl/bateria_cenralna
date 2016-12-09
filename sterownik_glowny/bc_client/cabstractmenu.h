@@ -28,6 +28,7 @@ private:
 
 protected:
     QString     m_menuName = "Abstract Menu";
+    bool        m_keyboardOn;
 };
 
 #endif // CABSTRACTMENU_H

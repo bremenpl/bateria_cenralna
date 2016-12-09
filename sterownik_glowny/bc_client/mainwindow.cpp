@@ -11,6 +11,7 @@ MainWindow::MainWindow(QWidget *parent) :
     mp_batMenu = NULL;
     mp_tcpSocket = NULL;
     m_youngestTabIndex = -1;
+    m_virtKeyboardOn = true;
 
     // setup logger
     CBcLogger::instance()->startLogger("/tmp", true, MLL::ELogLevel::LDebug);
@@ -117,6 +118,11 @@ void MainWindow::setDefaultSettings(QSettings* mp_settings)
 
     // language section
     // add
+
+    // misc section
+    mp_settings->beginGroup("misc");
+    mp_settings->setValue("vkeyboard", 1); // virtual keyboard on
+    mp_settings->endGroup();
 }
 
 /*!
@@ -135,6 +141,12 @@ void MainWindow::readAllSettings(QSettings* mp_settings)
     // frame policy
     if (0 == mp_settings->value("frame"))
         setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+    mp_settings->endGroup();
+
+    // keyboard
+    mp_settings->beginGroup("misc");
+    if (0 == mp_settings->value("vkeyboard"))
+        m_virtKeyboardOn = false;
     mp_settings->endGroup();
 }
 

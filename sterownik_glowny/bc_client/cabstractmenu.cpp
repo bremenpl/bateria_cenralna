@@ -10,6 +10,9 @@ CAbstractMenu::CAbstractMenu(QWidget *parent) : QDialog(parent), ui(new Ui::CAbs
     auto mainObj = dynamic_cast<MainWindow*>(parent);
     connect(this, SIGNAL(signal_BtnClicked(const EBtnTypes)),
             mainObj, SLOT(on_MenuBtnClicked(const EBtnTypes)));
+
+    // check if virtual keyboard should be called on text edits
+    m_keyboardOn = mainObj->virtKeyboardOn();
 }
 
 CAbstractMenu::~CAbstractMenu()

@@ -30,6 +30,8 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
+    bool virtKeyboardOn() { return m_virtKeyboardOn; };
+
 public slots:
     void on_tcpSocketConnected();
     void on_tcpSocketDisconnected();
@@ -52,6 +54,7 @@ private:
     QSettings*      mp_settings;        /*!< Settings file object */
     QString         m_settingsPath;     /*!< Setting file name with path */
     int             m_youngestTabIndex;
+    bool            m_virtKeyboardOn;
 
     // dialogs (menus)
     CMainMenu*      mp_mainMenu;
