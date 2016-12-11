@@ -16,8 +16,7 @@ CAbstractDevice::CAbstractDevice(QWidget *parent) : CAbstractMenu(parent), ui(ne
          << QObject::tr("Description");
 
     ui->twParams->setColumnCount(list.size());
-    ui->twParams
-            ->setHeaderLabels(list);
+    ui->twParams->setHeaderLabels(list);
 
     // resize all
     for (int i = 0; i < ui->twParams->columnCount(); i++)
