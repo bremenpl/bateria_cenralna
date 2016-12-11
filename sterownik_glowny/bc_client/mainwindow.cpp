@@ -6,11 +6,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     // clear unused pointers and assign zero values
-    mp_settingsMenu = NULL;
-    mp_devicesMenu = NULL;
-    mp_lineCtrlsMenu = NULL;
     mp_tcpSocket = NULL;
-    mp_preLineCtrlPanel = NULL;
     m_curLineCtrler = 0;
     m_youngestTabIndex = -1;
     m_virtKeyboardOn = true;
@@ -170,37 +166,57 @@ CAbstractMenu* MainWindow::currentMenuObject(const int index)
  */
 void MainWindow::on_MenuBtnClicked(const EBtnTypes btn)
 {
+    CAbstractMenu* menuPanel = 0;
+    QString name;
+
     switch (btn)
     {
         case EBtnTypes::Settings:
         {
-            mp_settingsMenu = new CSettingsMenu(this);
-            ui->tbMain->addTab(mp_settingsMenu, "Program\nsettings");
-            ui->tbMain->setCurrentIndex((ui->tbMain->indexOf(mp_settingsMenu)));
+            menuPanel = new CSettingsMenu(this);
+            name = "Program\nsettings";
             break;
         }
 
         case EBtnTypes::Devices:
         {
-            mp_devicesMenu = new CDeviceDialog(this);
-            ui->tbMain->addTab(mp_devicesMenu, "Devices");
-            ui->tbMain->setCurrentIndex((ui->tbMain->indexOf(mp_devicesMenu)));
+            menuPanel = new CDeviceDialog(this);
+            name = "Devices";
             break;
         }
 
         case EBtnTypes::LineControllers:
         {
-            mp_lineCtrlsMenu = new CItemsLcMenu(this);
-            ui->tbMain->addTab(mp_lineCtrlsMenu, "Line\nCtrls");
-            ui->tbMain->setCurrentIndex((ui->tbMain->indexOf(mp_lineCtrlsMenu)));
+            menuPanel = new CItemsLcMenu(this);
+            name = "Line\nCtrls";
             break;
         }
 
         case EBtnTypes::RelayControllers:
         {
-            mp_relayCtrlsMenu = new CItemsRcMenu(this);
-            ui->tbMain->addTab(mp_relayCtrlsMenu, "Relay\nCtrls");
-            ui->tbMain->setCurrentIndex((ui->tbMain->indexOf(mp_relayCtrlsMenu)));
+            menuPanel = new CItemsRcMenu(this);
+            name = "Relay\nCtrls";
+            break;
+        }
+
+        case EBtnTypes::PowerAdapter:
+        {
+            menuPanel = new CPaDevice(this);
+            name = "Power\nadapter";
+            break;
+        }
+
+        case EBtnTypes::Batteries:
+        {
+            menuPanel = new CItemsBatMenu(this);
+            name = "Batt's";
+            break;
+        }
+
+        case EBtnTypes::Chargers:
+        {
+            menuPanel = new CItemsCharMenu(this);
+            name = "Char's";
             break;
         }
 
@@ -209,6 +225,13 @@ void MainWindow::on_MenuBtnClicked(const EBtnTypes btn)
              CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
                      << "Unknown submenu button clicked with number " << (quint32)btn;
         }
+    }
+
+    // add object to tab widget
+    if (menuPanel)
+    {
+        ui->tbMain->addTab(menuPanel, name);
+        ui->tbMain->setCurrentIndex((ui->tbMain->indexOf(menuPanel)));
     }
 }
 
@@ -219,17 +242,38 @@ void MainWindow::on_MenuBtnClicked(const EBtnTypes btn)
  */
 void MainWindow::on_DeviceSelected(const EDeviceTypes deviceType, const int slaveAddr)
 {
+    // save slave addr for later use
+    m_curLineCtrler = slaveAddr;
+    QString name;
+    CAbstractMenu* menuPanel = 0;
+
     switch (deviceType)
     {
         case EDeviceTypes::LineCtrler:
         {
-            // save slave addr for later use
-            m_curLineCtrler = slaveAddr;
-            QString name = "LC " + QString::number(m_curLineCtrler);
+            name = "LC";
+            menuPanel = new CPreLcPanel(this);
+            break;
+        }
 
-            mp_preLineCtrlPanel = new CPreLcPanel(this);
-            ui->tbMain->addTab(mp_preLineCtrlPanel, name);
-            ui->tbMain->setCurrentIndex((ui->tbMain->indexOf(mp_preLineCtrlPanel)));
+        case EDeviceTypes::RelayCtrler:
+        {
+            name = "RC";
+            menuPanel = new CRcDevice(this);
+            break;
+        }
+
+        case EDeviceTypes::Battery:
+        {
+            name = "BAT";
+            menuPanel = new CBatDevice(this);
+            break;
+        }
+
+        case EDeviceTypes::Charger:
+        {
+            name = "CHAR";
+            menuPanel = new CCharDevice(this);
             break;
         }
 
@@ -238,6 +282,14 @@ void MainWindow::on_DeviceSelected(const EDeviceTypes deviceType, const int slav
             CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
                     << "Unknown device selected: " << (quint32)deviceType;
         }
+    }
+
+    // add object to tab widget
+    if (menuPanel)
+    {
+        name += " " + QString::number(m_curLineCtrler);
+        ui->tbMain->addTab(menuPanel, name);
+        ui->tbMain->setCurrentIndex((ui->tbMain->indexOf(menuPanel)));
     }
 
     CBcLogger::instance()->print(MLL::ELogLevel::LDebug,

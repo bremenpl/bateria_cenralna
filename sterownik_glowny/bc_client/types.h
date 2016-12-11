@@ -11,6 +11,8 @@ enum class EBtnTypes
     Batteries,
     LineControllers,
     RelayControllers,
+    PowerAdapter,
+    Chargers,
 };
 
 enum class EDeviceTypes
@@ -18,6 +20,8 @@ enum class EDeviceTypes
     Dummy,
     LineCtrler,
     RelayCtrler,
+    Battery,
+    Charger,
 };
 
 

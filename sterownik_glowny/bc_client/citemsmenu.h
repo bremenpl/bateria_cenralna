@@ -6,7 +6,6 @@
 #include <QTreeWidgetItemIterator>
 
 #include "cabstractmenu.h"
-#include "types.h"
 
 namespace Ui {
 class CItemsMenu;

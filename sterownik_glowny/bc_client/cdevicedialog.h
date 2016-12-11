@@ -22,6 +22,10 @@ private slots:
 
     void on_pbDevicesLineControllers_clicked();
 
+    void on_pbDevicesPowersupply_clicked();
+
+    void on_pbDevicesChargers_clicked();
+
 private:
     Ui::CDeviceDialog *ui;
 

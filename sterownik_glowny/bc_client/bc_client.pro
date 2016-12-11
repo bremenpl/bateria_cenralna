@@ -32,7 +32,14 @@ SOURCES += main.cpp\
     citemsmenu.cpp \
     citemslcmenu.cpp \
     cprelcpanel.cpp \
-    citemsrcmenu.cpp
+    citemsrcmenu.cpp \
+    cabstractdevice.cpp \
+    crcdevice.cpp \
+    cpadevice.cpp \
+    citemsbatmenu.cpp \
+    cbatdevice.cpp \
+    citemscharmenu.cpp \
+    cchardevice.cpp
 
 HEADERS  += mainwindow.h \
     ../bc_logger/cbclogger.h \
@@ -47,7 +54,14 @@ HEADERS  += mainwindow.h \
     citemsmenu.h \
     citemslcmenu.h \
     cprelcpanel.h \
-    citemsrcmenu.h
+    citemsrcmenu.h \
+    cabstractdevice.h \
+    crcdevice.h \
+    cpadevice.h \
+    citemsbatmenu.h \
+    cbatdevice.h \
+    citemscharmenu.h \
+    cchardevice.h
 
 FORMS    += mainwindow.ui \
     cdevicedialog.ui \
@@ -57,7 +71,8 @@ FORMS    += mainwindow.ui \
     cbatteriesmenu.ui \
     keyboard/keyboard.ui \
     citemsmenu.ui \
-    cprelcpanel.ui
+    cprelcpanel.ui \
+    cabstractdevice.ui
 
 TRANSLATIONS    +=  bcclient_en.ts \
                     bcclient_pl.ts

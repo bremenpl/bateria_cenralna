@@ -23,3 +23,13 @@ void CDeviceDialog::on_pbDevicesLineControllers_clicked()
 {
     emit signal_BtnClicked(EBtnTypes::LineControllers);
 }
+
+void CDeviceDialog::on_pbDevicesPowersupply_clicked()
+{
+    emit signal_BtnClicked(EBtnTypes::PowerAdapter);
+}
+
+void CDeviceDialog::on_pbDevicesChargers_clicked()
+{
+    emit signal_BtnClicked(EBtnTypes::Chargers);
+}

@@ -1,17 +1,17 @@
-#include "citemslcmenu.h"
+#include "citemscharmenu.h"
 
-CItemsLcMenu::CItemsLcMenu(QWidget *parent) : CItemsMenu(parent)
+CItemsCharMenu::CItemsCharMenu(QWidget *parent) : CItemsMenu(parent)
 {
     // set the menu name
-    m_menuName = "Line Controllers Menu";
+    m_menuName = "Chargers Menu";
 
     // set device type
-    m_deviceType = EDeviceTypes::LineCtrler;
+    m_deviceType = EDeviceTypes::Charger;
 
-    // place line controllers tree view specific modifications here if needed
+    // place chargers tree view specific modifications here if needed
 
     // add some dummy items TEMP
-    for (int i = 1; i <= 64; i++)
+    for (int i = 1; i <= 6; i++)
     {
         QTreeWidgetItem* item = new QTreeWidgetItem(mp_tw);
         item->setText(0, QString::number(i));

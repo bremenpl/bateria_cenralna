@@ -15,6 +15,12 @@
 #include "citemslcmenu.h"
 #include "cprelcpanel.h"
 #include "citemsrcmenu.h"
+#include "crcdevice.h"
+#include "cpadevice.h"
+#include "citemsbatmenu.h"
+#include "cbatdevice.h"
+#include "citemscharmenu.h"
+#include "cchardevice.h"
 
 #include "types.h"
 
@@ -33,7 +39,7 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
-    bool virtKeyboardOn() { return m_virtKeyboardOn; };
+    bool virtKeyboardOn() { return m_virtKeyboardOn; }
 
 public slots:
     void on_tcpSocketConnected();
@@ -62,14 +68,7 @@ private:
 
     // dialogs (menus)
     CMainMenu*      mp_mainMenu;
-    CSettingsMenu*  mp_settingsMenu;
-    CDeviceDialog*  mp_devicesMenu;
-    CItemsLcMenu*   mp_lineCtrlsMenu;
-
-    CPreLcPanel*    mp_preLineCtrlPanel;
     int             m_curLineCtrler;
-
-    CItemsRcMenu*    mp_relayCtrlsMenu;
 
     QTcpSocket*     mp_tcpSocket;
 };
