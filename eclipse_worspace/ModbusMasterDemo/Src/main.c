@@ -97,7 +97,7 @@ int main(void)
 
   /* USER CODE BEGIN 2 */
 
-  mbm_Init(&huart2, 3000);
+  mbm_Init(&huart2, 1000);
 
   /* USER CODE END 2 */
 
