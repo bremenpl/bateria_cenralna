@@ -110,6 +110,73 @@ mbgExCode_t mbs_CheckReadHoldingRegistersRequest(mbgFrame_t* mf)
 	return e_mbsExCode_noError;
 }
 
+/*
+ * @brief	Override function for handling incoming modbus requests
+ * 			from the master device.
+ */
+mbgExCode_t mbs_CheckReadCoils(mbgFrame_t* mf)
+{
+	if (!mf)
+		return e_mbsExCode_illegalDataAddr;
+
+	// starting coild
+	uint16_t startCoil = mf->data[1] | ((uint16_t)mf->data[0] << 8);
+
+	// quantity of coils
+	uint16_t nrOfCoils = mf->data[3] | ((uint16_t)mf->data[2] << 8);
+
+	// check if registers to read are in range
+	if ((startCoil + nrOfCoils) > RC_NO_OF_COILS)
+		return e_mbsExCode_illegalDataAddr;
+
+	// byte count
+	mf->data[0] = (nrOfCoils / 8);
+
+	// check residue
+	if (nrOfCoils % 8)
+		mf->data[0]++; // nr of coils / 8 + 1 if modulo not 0
+
+	// total len
+	mf->dataLen = 1 + (uint16_t)mf->data[0]; // byte count + coil status (bytes)
+
+	// coil status
+	// increment pointer byte wise not word wise
+	uint8_t* curByte = ((uint8_t*)rcRegMap.reg) + (startCoil / 8);
+	uint32_t curBit = startCoil % 8;
+
+	// clear data initially
+	memset(mf->data + 1, 0, mf->data[0]);
+
+	// for loops bit per bit
+	for (uint32_t coil = 0, byteInd = 1, totCoil = 0;
+			totCoil < nrOfCoils;
+			coil++, curBit++, totCoil++)
+	{
+		// check if bits need flipping
+		if (coil >= 8)
+		{
+			coil = 0;
+			byteInd++;
+		}
+
+		if (curBit >= 8)
+		{
+			curBit = 0;
+			curByte++;
+		}
+
+		// check if selected bit is set
+		if (*curByte & (1 << curBit))
+			mf->data[byteInd] |= 1 << coil;
+	}
+
+	// clear residue
+	mf->data[mf->dataLen - 1] &= (0xFF >> (8 - (nrOfCoils % 8)));
+
+	// return no error
+	return e_mbsExCode_noError;
+}
+
 
 
 

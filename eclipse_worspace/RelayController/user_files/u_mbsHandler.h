@@ -14,6 +14,7 @@
 
 /* Defines and macros --------------------------------------------------------*/
 #define		RC_NO_OF_REG		128
+#define 	RC_NO_OF_COILS		(RC_NO_OF_REG * 8)
 
 /* Enums and structs ---------------------------------------------------------*/
 
