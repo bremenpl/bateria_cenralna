@@ -29,7 +29,8 @@ static mbgRxState_t mbs_rxState;
 
 /* Fuction prototypes --------------------------------------------------------*/
 void mbs_task_rxDequeue(void const* argument);
-HAL_StatusTypeDef mbs_ExamineFuncCode(const uint8_t fCode, uint8_t** data_p, uint32_t* len);
+mbgRxState_t mbs_ExamineFuncCode(const uint8_t fCode, uint8_t** data_p, uint32_t* len);
+mbgRxState_t mbs_ExamineDataLen(const uint8_t fCode, uint8_t** data_p, uint32_t* len);
 
 /* Function declarations -----------------------------------------------------*/
 
@@ -83,40 +84,103 @@ HAL_StatusTypeDef mbs_Init(UART_HandleTypeDef* uartHandle, uint8_t address)
  * @param	fCode: Input parameter, received function code to examine.
  * @param	data_p: data pointer under which rx data will be saved,
  * @param	len: length of received data.
+ * @return	Reception status depending on frame examination.
+ * 			Returns \ref e_mbsRxState_none if error.
  */
-HAL_StatusTypeDef mbs_ExamineFuncCode(const uint8_t fCode, uint8_t** data_p, uint32_t* len)
+mbgRxState_t mbs_ExamineFuncCode(const uint8_t fCode, uint8_t** data_p, uint32_t* len)
 {
 	assert_param(fCode);
 	assert_param(data_p);
 	assert_param(len);
-	HAL_StatusTypeDef retVal = HAL_OK;
+
+	// assume known frame
+	mbgRxState_t retVal = e_mbsRxState_data;
+	*data_p = mbs_rxFrames[mbs_rxFramesIndex].data;
 
 	// decide what to do next depending on the function code
 	switch (fCode)
 	{
+		case e_mbFuncCode_ReadCoils:
 		case e_mbFuncCode_ReadHoldingRegisters:
 		{
 			// For this request one has to wait for 4 bytes:
-			// Starting address (2), quantity of registers (2)
-			*data_p = mbs_rxFrames[mbs_rxFramesIndex].data;
+			// Starting address (2), quantity of registers/ coils (2)
 			*len = 4;
-
-			// save length for generic purposes, like crc calculation
-			mbs_rxFrames[mbs_rxFramesIndex].dataLen = *len;
 			break;
 		}
 
-		/*case e_mbFuncCode_WriteMultipleRegisters:
+		case e_mbFuncCode_WriteMultipleCoils:
+		case e_mbFuncCode_WriteMultipleRegisters:
 		{
+			// Wait for 5 bytes:
+			// Starting address (2), Quantity of Outputs (2), Byte Count (1)
+			*len = 5;
 			break;
-		}*/
+		}
 
 		default:
 		{
 			// same principle as for 1st byte
 			*data_p = &mbs_rxFrames[mbs_rxFramesIndex].code;
 			*len = MBG_MAX_DATA_LEN + 3;
-			retVal =  HAL_ERROR; // unknown function code
+			retVal =  e_mbsRxState_none; // unknown function code
+		}
+	}
+
+	// save length for generic purposes, like crc calculation
+	mbs_rxFrames[mbs_rxFramesIndex].dataLen = *len;
+
+	return retVal;
+}
+
+/*
+ * @brief	Call this method in data length examination routine.
+ * @param	fCode: Input parameter, received function code to examine.
+ * @param	data_p: data pointer under which rx data will be saved,
+ * @param	len: length of received data.
+ * @return	Reception status depending on frame examination.
+ * 			Returns \ref e_mbsRxState_none if error.
+ */
+mbgRxState_t mbs_ExamineDataLen(const uint8_t fCode, uint8_t** data_p, uint32_t* len)
+{
+	assert_param(fCode);
+	assert_param(data_p);
+	assert_param(len);
+	mbgRxState_t retVal = e_mbsRxState_none;
+
+	// decide what to do next depending on the function code
+	switch (fCode)
+	{
+		case e_mbFuncCode_ReadCoils:
+		case e_mbFuncCode_ReadHoldingRegisters:
+		{
+			// Next 2 bytes will be the CRC
+			*data_p = (uint8_t*)&mbs_rxFrames[mbs_rxFramesIndex].crc;
+			*len = 2;
+			retVal = e_mbsRxState_crc;
+			break;
+		}
+
+		case e_mbFuncCode_WriteMultipleCoils:
+		case e_mbFuncCode_WriteMultipleRegisters:
+		{
+			// set pointer to 5th element
+			*data_p = mbs_rxFrames[mbs_rxFramesIndex].data + 5;
+
+			// Last data byte holds the amount of bytes to receive
+			*len = mbs_rxFrames[mbs_rxFramesIndex].data[4];
+			retVal = e_mbsRxState_data2;
+
+			// update length
+			mbs_rxFrames[mbs_rxFramesIndex].dataLen += *len;
+			break;
+		}
+
+		default:
+		{
+			// same principle as for 1st byte
+			*data_p = &mbs_rxFrames[mbs_rxFramesIndex].code;
+			*len = MBG_MAX_DATA_LEN + 3;
 		}
 	}
 
@@ -196,14 +260,20 @@ void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle)
 		{
 			// if the function is known, go further. If not, start from the begging
 			// after timeout
-			if (!mbs_ExamineFuncCode(mbs_rxFrames[mbs_rxFramesIndex].code, &data_p, &len))
-				mbs_rxState = e_mbsRxState_data;
+			mbs_rxState = mbs_ExamineFuncCode(mbs_rxFrames[mbs_rxFramesIndex].code, &data_p, &len);
 			break;
 		}
 
-		case e_mbsRxState_data: // received the data
+		case e_mbsRxState_data: // received the data (length/ registers)
 		{
-			// now its tie to receive 16 bit CRC
+			// Handle the data more further. Either receive more or wait for CRC
+			mbs_rxState = mbs_ExamineDataLen(mbs_rxFrames[mbs_rxFramesIndex].code, &data_p, &len);
+			break;
+		}
+
+		case e_mbsRxState_data2: // receive the data (registers)
+		{
+			// Next 2 bytes will be the CRC
 			data_p = (uint8_t*)&mbs_rxFrames[mbs_rxFramesIndex].crc;
 			len = 2;
 			mbs_rxState = e_mbsRxState_crc;
@@ -224,7 +294,7 @@ void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle)
 			break;
 		}
 
-		default: // unknown state, wait for addr byte without timeut
+		default: // unknown state, wait for addr byte without timeout
 		{
 			data_p = &mbs_rxFrames[mbs_rxFramesIndex].addr;
 			len = 1;

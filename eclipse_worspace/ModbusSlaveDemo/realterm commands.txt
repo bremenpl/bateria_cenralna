@@ -1,6 +1,9 @@
 Read 1 holding register from address 0:
 5 3 0 0 0 1 0x85 0x8E
 
+Read 3 holding registers from address 0:
+5 3 0 0 0 3 0x04 0x4F
+
 Response:
 5 3 2 0 0 0x49 0x84                                                    
 5 3 2 0 1 0x88 0x44 
