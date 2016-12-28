@@ -62,7 +62,8 @@ typedef enum
 	e_mbsRxState_none				= 0,
 	e_mbsRxState_addr,
 	e_mbsRxState_funcCode,
-	e_mbsRxState_data,
+	e_mbsRxState_data,	// to get the length
+	e_mbsRxState_data2, // to get the bytes
 	e_mbsRxState_crc,
 } mbgRxState_t;
 

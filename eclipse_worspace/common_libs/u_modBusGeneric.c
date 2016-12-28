@@ -153,7 +153,12 @@ HAL_StatusTypeDef mbg_CheckSendStatus(UART_HandleTypeDef* uHandle)
 {
 	HAL_UART_StateTypeDef state = HAL_UART_GetState(uHandle);
 	if ((state == HAL_UART_STATE_READY) || (state == HAL_UART_STATE_BUSY_RX))
-		return HAL_OK;
+	{
+		// check if rx timeout is disabled, otherwise turning DMA off might
+		// cut the tx transfer process
+		if (!(uHandle->Instance->CR2 & USART_CR2_RTOEN))
+			return HAL_OK;
+	}
 
 	return HAL_ERROR;
 }
@@ -276,7 +281,8 @@ HAL_StatusTypeDef mbg_EnableReceiver(UART_HandleTypeDef* uHandle,
 	retVal += HAL_UART_DMAStop(uHandle);
 
 	// Wait for ready status
-	while (HAL_UART_GetState(uHandle) != HAL_UART_STATE_READY);
+	while ((HAL_UART_GetState(uHandle) != HAL_UART_STATE_READY) &&
+			(HAL_UART_GetState(uHandle) != HAL_UART_STATE_BUSY_TX));
 
 	// Enable receive
 	if (len)
