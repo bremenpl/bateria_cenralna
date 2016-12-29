@@ -33,6 +33,8 @@ HAL_StatusTypeDef mbs_Init(UART_HandleTypeDef* uartHandle, uint8_t address);
 
 // override functions
 mbgExCode_t mbs_CheckReadHoldingRegistersRequest(mbgFrame_t* mf);
+mbgExCode_t mbs_CheckReadCoils(mbgFrame_t* mf);
+mbgExCode_t mbs_CheckWriteSingleCoil(mbgFrame_t* mf);
 
 /* Function declarations -----------------------------------------------------*/
 

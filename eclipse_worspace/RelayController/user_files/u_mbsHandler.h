@@ -38,11 +38,18 @@ typedef enum
 
 typedef enum
 {
-	e_rcStatusMask_RelayState			= 1,
-	e_rcStatusMask_PowerSource			= 2,
-	e_rcStatusMask_BlackoutBehaviour	= 4,
+	e_rcStatusMask_RelayStateR			= 1,
+	e_rcStatusMask_PowerSourceR			= 2,
+	e_rcStatusMask_BlackoutBehaviourR	= 4,
 
-} rcStatusMask_t;
+} rcStatusMaskR_t;
+
+typedef enum
+{
+	e_rcStatusMask_RelayStateW			= 1,
+	e_rcStatusMask_BlackoutBehaviourW	= 2,
+
+} rcStatusMaskW_t;
 
 /* Private variables ---------------------------------------------------------*/
 

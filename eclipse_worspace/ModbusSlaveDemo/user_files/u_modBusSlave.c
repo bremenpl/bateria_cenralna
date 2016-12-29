@@ -100,11 +100,12 @@ mbgRxState_t mbs_ExamineFuncCode(const uint8_t fCode, uint8_t** data_p, uint32_t
 	// decide what to do next depending on the function code
 	switch (fCode)
 	{
+		case e_mbFuncCode_WriteSingleCoil:
 		case e_mbFuncCode_ReadCoils:
 		case e_mbFuncCode_ReadHoldingRegisters:
 		{
 			// For this request one has to wait for 4 bytes:
-			// Starting address (2), quantity of registers/ coils (2)
+			// Starting address (2), quantity of registers/ coils/ Output Value  (2)
 			*len = 4;
 			break;
 		}
@@ -151,6 +152,7 @@ mbgRxState_t mbs_ExamineDataLen(const uint8_t fCode, uint8_t** data_p, uint32_t*
 	// decide what to do next depending on the function code
 	switch (fCode)
 	{
+		case e_mbFuncCode_WriteSingleCoil:
 		case e_mbFuncCode_ReadCoils:
 		case e_mbFuncCode_ReadHoldingRegisters:
 		{
@@ -362,9 +364,21 @@ void mbs_task_rxDequeue(void const* argument)
 				// crc OK, proceed. Check function code
 				switch (mf->code)
 				{
+					case e_mbFuncCode_ReadCoils:
+					{
+						exCode = mbs_CheckReadCoils(mf);
+						break;
+					}
+
 					case e_mbFuncCode_ReadHoldingRegisters:
 					{
 						exCode = mbs_CheckReadHoldingRegistersRequest(mf);
+						break;
+					}
+
+					case e_mbFuncCode_WriteSingleCoil:
+					{
+						exCode = mbs_CheckWriteSingleCoil(mf);
 						break;
 					}
 
@@ -399,6 +413,28 @@ void mbs_task_rxDequeue(void const* argument)
  * @return  exception code, 0 if function executed properly.
  */
 __attribute__((weak)) mbgExCode_t mbs_CheckReadHoldingRegistersRequest(mbgFrame_t* mf)
+{
+	return e_mbsExCode_illegalDataAddr;
+}
+
+/*
+ * @brief	The default read coils function.
+ * 			If not overriden, it always returns illegar data address ex code.
+ * @param	mf: pointer to a modbus frame struct.
+ * @return  exception code, 0 if function executed properly.
+ */
+__attribute__((weak)) mbgExCode_t mbs_CheckReadCoils(mbgFrame_t* mf)
+{
+	return e_mbsExCode_illegalDataAddr;
+}
+
+/*
+ * @brief	The default 05 (0x05) Write Single Coil function.
+ * 			If not overriden, it always returns illegar data address ex code.
+ * @param	mf: pointer to a modbus frame struct.
+ * @return  exception code, 0 if function executed properly.
+ */
+__attribute__((weak)) mbgExCode_t mbs_CheckWriteSingleCoil(mbgFrame_t* mf)
 {
 	return e_mbsExCode_illegalDataAddr;
 }

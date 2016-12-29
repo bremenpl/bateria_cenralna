@@ -25,6 +25,7 @@ static uint16_t* rcUserString;
 /* Public variables ----------------------------------------------------------*/
 
 /* Fuction prototypes --------------------------------------------------------*/
+mbgExCode_t rc_SetRegisterBit(const uint16_t coil, const uint16_t value);
 
 /* Function declarations -----------------------------------------------------*/
 
@@ -75,13 +76,52 @@ void mbsHandler_Init()
 }
 
 /*
+ * @brief	Sets the state (\ref value) of the \ref coil.
+ * @param	coil: coil number/ address
+ * @param	value: non zero sets the bit, zero clears it.
+ * @param	returns \ref e_mbsExCode_noError if operation was succesfull,
+ * 			\ref e_mbsExCode_illegalDataValue if register is read only.
+ */
+mbgExCode_t rc_SetRegisterBit(const uint16_t coil, const uint16_t value)
+{
+	// validate coil address
+	if (coil >= RC_NO_OF_COILS)
+		return e_mbsExCode_illegalDataAddr;
+
+	// validate coil value (0 for coil off, 0xFF00 for coil on)
+	if ((value != 0) && (value != 0xFF00))
+		return e_mbsExCode_illegalDataValue;
+
+	// get the register in which the coil resides
+	uint16_t reg = coil / 8;
+
+	// check if register is not read-only
+	if (e_rcAccessType_R == rcRegMap.access[reg])
+		return e_mbsExCode_slaveDeviceFailure;
+
+	// get the bit in the reg
+	uint32_t bit = coil % 8;
+
+	// set/ clear the bit
+	if (value)
+		rcRegMap.reg[reg] |= 1 << bit;
+	else
+		rcRegMap.reg[reg] &= ~(1 << bit);
+
+	// TODO: Add registers setting actions
+
+	return e_mbsExCode_noError;
+}
+
+// OVERRIDES
+
+/*
  * @brief	Override function for handling incoming modbus requests
  * 			from the master device.
  */
 mbgExCode_t mbs_CheckReadHoldingRegistersRequest(mbgFrame_t* mf)
 {
-	if (!mf)
-		return e_mbsExCode_illegalDataAddr;
+	if (!mf) return e_mbsExCode_illegalDataAddr;
 
 	// start address
 	uint16_t startAddr = mf->data[1] | ((uint16_t)mf->data[0] << 8);
@@ -116,8 +156,7 @@ mbgExCode_t mbs_CheckReadHoldingRegistersRequest(mbgFrame_t* mf)
  */
 mbgExCode_t mbs_CheckReadCoils(mbgFrame_t* mf)
 {
-	if (!mf)
-		return e_mbsExCode_illegalDataAddr;
+	if (!mf) return e_mbsExCode_illegalDataAddr;
 
 	// starting coild
 	uint16_t startCoil = mf->data[1] | ((uint16_t)mf->data[0] << 8);
@@ -171,10 +210,29 @@ mbgExCode_t mbs_CheckReadCoils(mbgFrame_t* mf)
 	}
 
 	// clear residue
-	mf->data[mf->dataLen - 1] &= (0xFF >> (8 - (nrOfCoils % 8)));
+	//mf->data[mf->dataLen - 1] &= (0xFF >> (8 - (nrOfCoils % 8)));
 
 	// return no error
 	return e_mbsExCode_noError;
+}
+
+/*
+ * @brief	Override function for handling incoming modbus requests
+ * 			from the master device.
+ */
+mbgExCode_t mbs_CheckWriteSingleCoil(mbgFrame_t* mf)
+{
+	if (!mf) return e_mbsExCode_illegalDataAddr;
+
+	// output address
+	uint16_t outAddr = mf->data[1] | ((uint16_t)mf->data[0] << 8);
+
+	// output value
+	uint16_t outVal = mf->data[3] | ((uint16_t)mf->data[2] << 8);
+
+	// No need to update the mf for the response, as its a mirror of the request
+
+	return rc_SetRegisterBit(outAddr, outVal);
 }
 
 

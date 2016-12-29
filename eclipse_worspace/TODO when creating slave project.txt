@@ -1,0 +1,11 @@
+When creating new Modbus slave project in eclipse do the following at the beginningS:
+
+1. Configure and generate the project using CubeMx.
+2. Import the generated project to eclipse.
+3. Add folder links to common_libs (mbg) and user_files (mbs) from the ModbusSlaveDemo project.
+4. Add previously added links as source folders.
+5. Add previously added source folders to indlude path in the project settings.
+6. Kill the default unused (but generated) task from freertos.c by adding osThreadTerminate(0); in its body.
+7. Include "u_modBusSlave.h" in the main.c file and initialize the modbus slave module by calling mbs_Init.  
+8. Add mbg_ClearRTOCF_Flag in the *it.c file as it is not handled in the HAL lib (include "u_modBusGeneric.h").
+
