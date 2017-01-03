@@ -15,7 +15,7 @@
 #include "u_modBusGeneric.h"
 
 /* Defines and macros --------------------------------------------------------*/
-#define MBS_RCV_QUEUE_SIZE		2
+#define MBS_MAX_NO_OF_SLAVES	4
 
 #define MBS_MIN_ADDR			1
 #define MBS_MAX_ADDR			247
@@ -24,12 +24,19 @@
 
 /* Enums and structs ---------------------------------------------------------*/
 
+typedef struct
+{
+	mbgUart_t			mbg;			/*!< Generic modbus functions */
+	uint8_t				slaveAddr;		/*!< Modbus slave address */
+
+} mbsUart_t;
+
 /* Private variables ---------------------------------------------------------*/
 
 /* Public variables ----------------------------------------------------------*/
 
 /* Fuction prototypes --------------------------------------------------------*/
-HAL_StatusTypeDef mbs_Init(UART_HandleTypeDef* uartHandle, uint8_t address);
+HAL_StatusTypeDef mbs_Init(mbsUart_t* mbsu, size_t noOfModules);
 
 // override functions
 mbgExCode_t mbs_CheckReadHoldingRegistersRequest(mbgFrame_t* mf);

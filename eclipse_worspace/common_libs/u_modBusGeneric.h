@@ -96,13 +96,28 @@ typedef struct
 	uint16_t		crc;					/*!< CRC code */
 } mbgFrame_t;
 
-
+/*
+ * @brief	Generic modbus substruct containing data for modbus master/ slave operation.
+ */
 typedef struct
 {
 	UART_HandleTypeDef* handle;					/*!< Pointer to a uart struct */
 	osMutexId			txMut;					/*!< Transfer mutex for the uart */
 	uint8_t 			buf[MBG_MAX_FRAME_LEN];	/*!< Operations buffer (tx and rx) */
 	uint32_t			len;					/*!< Actual buffer size */
+
+	struct										/*!< Container for rx queue objects */
+	{
+		osMessageQId 	msgQId_rX;				/*!< Receiver message queue object */
+		osThreadId 		sysId_rX;				/*!< Receiver thread for \ref msgQId_rX */
+		mbgFrame_t* 	frames;					/*!< Received queues buffer, needs to be
+												allocated in the init function */
+		uint32_t 		framesIndex;			/*!< Used for indexing \ref frames */
+		uint32_t		framesBufLen;			/*!< Allocate \ref frames with this number */
+	} rxQ;
+
+	mbgRxState_t		rxState;				/*!< Current modbus receiver state */
+
 } mbgUart_t;
 
 

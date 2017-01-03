@@ -9,6 +9,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "u_modBusGeneric.h"
+#include <stdlib.h>
 
 /* Defines and macros --------------------------------------------------------*/
 
@@ -140,6 +141,16 @@ HAL_StatusTypeDef mbg_UartInit(mbgUart_t* uart)
 	uart->txMut = osMutexCreate(&tempMutDef);
 	if (!uart->txMut)
 		retVal++;
+
+	// init frames buffer
+	if (!uart->rxQ.framesBufLen)
+		retVal++;
+	else
+	{
+		uart->rxQ.frames = malloc(sizeof(mbgFrame_t) * uart->rxQ.framesBufLen);
+		if (!uart->rxQ.frames)
+			retVal++;
+	}
 
 	return retVal;
 }

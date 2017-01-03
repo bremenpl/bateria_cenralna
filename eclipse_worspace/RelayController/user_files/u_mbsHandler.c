@@ -16,7 +16,7 @@
 /* Enums and structs ---------------------------------------------------------*/
 
 /* Private variables ---------------------------------------------------------*/
-static rcRegMap_t rcRegMap;
+static rcRegSpace_t rcRegMap;
 static uint16_t* rcStatus;
 static uint16_t* rcSetting;
 static uint16_t* rcUniqId;
@@ -26,6 +26,7 @@ static uint16_t* rcUserString;
 
 /* Fuction prototypes --------------------------------------------------------*/
 mbgExCode_t rc_SetRegisterBit(const uint16_t coil, const uint16_t value);
+void rc_UpdateRegChanges(const uint16_t reg);
 
 /* Function declarations -----------------------------------------------------*/
 
@@ -41,7 +42,7 @@ void mbsHandler_Init()
 	// Register	Address	Access	Description
 	// Status	0x00	R		Status bits reflects the current state of the device.
 	//							Those registers cannot be written but can be read at any time.
-	rcRegMap.access[0] = e_rcAccessType_R;
+	rcRegMap.access[e_rcRegMap_Status] = e_rcAccessType_R;
 	rcStatus = rcRegMap.reg;
 
 	// Setting	0x01	W		One can write those bits in order to program the device.
@@ -49,30 +50,30 @@ void mbsHandler_Init()
 	//							its state when read does not reflect the current state,
 	// 							but the value that was written to it. In order to obtain
 	//							current device state Status register should be read.
-	rcRegMap.access[1] = e_rcAccessType_W;
-	rcSetting = rcRegMap.reg + 1;
+	rcRegMap.access[e_rcRegMap_Setting] = e_rcAccessType_W;
+	rcSetting = rcRegMap.reg + e_rcRegMap_Setting;
 
 	// ID	0x02 - 0x07	R		96 bit (12 byte) unique device ID
 	// Apparently not all F0 devices own a unique device ID...
 	// https://community.st.com/thread/28751
 	// In this case one has to be assigned in the eeprom by the user
-	for (uint32_t i = 0x02; i <= 0x07; i++)
+	for (uint32_t i = e_rcRegMap_IdFirst; i <= e_rcRegMap_IdLast; i++)
 	{
 		rcRegMap.access[i] = e_rcAccessType_R;
 		rcRegMap.reg[i] = i; // TODO temp
 	}
 
-	rcUniqId = rcRegMap.reg + 2;
+	rcUniqId = rcRegMap.reg + e_rcRegMap_IdFirst;
 
 	// String	0x08 - 0x28	RW	64 byte user string.
 	//							One can use it to create a unique name for the device.
 	char* tempString = "RelayController";
-	memcpy(rcRegMap.reg + 8, tempString, 16); // TODO temp
+	memcpy(rcRegMap.reg + e_rcRegMap_StringFirst, tempString, 16); // TODO temp
 
-	for (uint32_t i = 0x08; i <= 0x28; i++)
+	for (uint32_t i = e_rcRegMap_StringFirst; i <= e_rcRegMap_StringLast; i++)
 		rcRegMap.access[i] = e_rcAccessType_RW;
 
-	rcUserString = rcRegMap.reg + 8;
+	rcUserString = rcRegMap.reg + e_rcRegMap_StringFirst;
 }
 
 /*
@@ -108,9 +109,47 @@ mbgExCode_t rc_SetRegisterBit(const uint16_t coil, const uint16_t value)
 	else
 		rcRegMap.reg[reg] &= ~(1 << bit);
 
-	// TODO: Add registers setting actions
+	// trigger register dependent actions
+	rc_UpdateRegChanges(reg);
 
 	return e_mbsExCode_noError;
+}
+
+/*
+ * @brief	Run this function when an action needs to be triggered after \ref reg
+ * 			is modified. This function is device dependent.
+ * @param	reg: register address that was updated and should trigger an action.
+ */
+void rc_UpdateRegChanges(const uint16_t reg)
+{
+	switch (reg)
+	{
+		case e_rcRegMap_Setting:
+		{
+			// When setting register is changed, status reg has to be updated
+			// check all bytes
+
+			// relay state
+			if (rcRegMap.reg[reg] & (1 << e_rcStatusMask_RelayStateW))
+				rcRegMap.reg[e_rcRegMap_Status] |= 1 << e_rcStatusMask_RelayStateR;
+			else
+				rcRegMap.reg[e_rcRegMap_Status] &= ~(1 << e_rcStatusMask_RelayStateR);
+
+			// TODO: change the state of that relay
+
+			// blackout behavious
+			if (rcRegMap.reg[reg] & (1 << e_rcStatusMask_BlackoutBehaviorW))
+				rcRegMap.reg[e_rcRegMap_Status] |= 1 << e_rcStatusMask_BlackoutBehaviorR;
+			else
+				rcRegMap.reg[e_rcRegMap_Status] &= ~(1 << e_rcStatusMask_BlackoutBehaviorR);
+
+			// TODO: change current behavior if?
+
+			break;
+		}
+
+		default: { } // some registers changes dont trigger anything
+	}
 }
 
 // OVERRIDES
@@ -211,6 +250,8 @@ mbgExCode_t mbs_CheckReadCoils(mbgFrame_t* mf)
 
 	// clear residue
 	//mf->data[mf->dataLen - 1] &= (0xFF >> (8 - (nrOfCoils % 8)));
+
+	// TODO: check response bytes order
 
 	// return no error
 	return e_mbsExCode_noError;

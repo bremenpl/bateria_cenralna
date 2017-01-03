@@ -26,6 +26,17 @@ typedef struct
 	uint16_t	reg[RC_NO_OF_REG];
 	uint16_t	access[RC_NO_OF_REG];
 
+} rcRegSpace_t;
+
+typedef enum
+{
+	e_rcRegMap_Status					= 0x00,
+	e_rcRegMap_Setting					= 0x01,
+	e_rcRegMap_IdFirst					= 0x02,
+	e_rcRegMap_IdLast					= 0x07,
+	e_rcRegMap_StringFirst				= 0x08,
+	e_rcRegMap_StringLast				= 0x28,
+
 } rcRegMap_t;
 
 typedef enum
@@ -38,16 +49,16 @@ typedef enum
 
 typedef enum
 {
-	e_rcStatusMask_RelayStateR			= 1,
-	e_rcStatusMask_PowerSourceR			= 2,
-	e_rcStatusMask_BlackoutBehaviourR	= 4,
+	e_rcStatusMask_RelayStateR			= 0,
+	e_rcStatusMask_PowerSourceR			= 1,
+	e_rcStatusMask_BlackoutBehaviorR	= 2,
 
 } rcStatusMaskR_t;
 
 typedef enum
 {
-	e_rcStatusMask_RelayStateW			= 1,
-	e_rcStatusMask_BlackoutBehaviourW	= 2,
+	e_rcStatusMask_RelayStateW			= 0,
+	e_rcStatusMask_BlackoutBehaviorW	= 1,
 
 } rcStatusMaskW_t;
 

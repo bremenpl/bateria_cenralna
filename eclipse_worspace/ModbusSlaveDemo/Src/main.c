@@ -97,7 +97,20 @@ int main(void)
 
   /* USER CODE BEGIN 2 */
 
-  mbs_Init(&huart1, 5);
+  // before calling the init script, user has to fill in
+  // some application specific information
+  mbsUart_t mbsu;
+
+  // set slave address
+  mbsu.slaveAddr = 5;
+
+  // set uart handle
+  mbsu.mbg.handle = &huart1;
+
+  // set number of frames in the slave receiver queue
+  mbsu.mbg.rxQ.framesBufLen = 2;
+
+  mbs_Init(&mbsu, 1);
 
   /* USER CODE END 2 */
 
