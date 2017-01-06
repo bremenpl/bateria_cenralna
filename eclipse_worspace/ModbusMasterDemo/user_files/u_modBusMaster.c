@@ -28,6 +28,7 @@ HAL_StatusTypeDef mbm_ExamineFuncCode(mbmUart_t* mbmu, uint8_t** data_p, uint32_
 HAL_StatusTypeDef mbm_ExamineData(mbmUart_t* mbmu, uint8_t** data_p, uint32_t* len);
 HAL_StatusTypeDef mbm_RespTimeoutRestart(mbmUart_t* mbmu);
 HAL_StatusTypeDef mbm_RespTimeoutStop(mbmUart_t* mbmu);
+void mbm_RespTimeoutAction(mbmUart_t* mbmu);
 mbmUart_t* mbm_GetModuleFromUartHandle(UART_HandleTypeDef* uart);
 
 /* Function declarations -----------------------------------------------------*/
@@ -170,8 +171,7 @@ HAL_StatusTypeDef mbm_RequestReadHoldingRegs(mbmUart_t* mbmu,
 		return HAL_ERROR;
 	}
 
-	// start response timeout timer
-	return mbm_RespTimeoutRestart(mbmu);
+	return HAL_OK;
 }
 
 /*
@@ -289,7 +289,8 @@ void mbm_uartTxRoutine(UART_HandleTypeDef* uHandle)
 	// set state
 	mbmu->mbg.rxState = e_mbsRxState_addr;
 
-	// TODO turn on global rx timeout
+	// start global timeout timer
+	mbm_RespTimeoutRestart(mbmu);
 }
 
 /*
@@ -491,7 +492,7 @@ void mbm_task_rxTimeout(void const* argument)
 
 			// timeout occured
 			if (osEventTimeout == retEvent.status)
-				mbm_uartRxTimeoutRoutine(mbmu->mbg.handle);
+				mbm_RespTimeoutAction(mbmu);
 
 			// timeout restart occured
 			else if (retEvent.status == osEventMessage)
@@ -518,6 +519,21 @@ void mbm_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle)
 	mbmUart_t* mbmu = mbm_GetModuleFromUartHandle(uHandle);
 	if (!mbmu)
 		return;
+
+	// stop the timeout timer
+	mbm_RespTimeoutStop(mbmu);
+
+	// call timeout action
+	mbm_RespTimeoutAction(mbmu);
+}
+
+/*
+ * @brief	Timeout action (global and modbus)
+ * @param	mbmu: modbus master module pointer.
+ */
+void mbm_RespTimeoutAction(mbmUart_t* mbmu)
+{
+	assert_param(mbmu);
 
 	// allow user to handle the timeout
 	if (e_mbsRxState_none != mbmu->mbg.rxState)
@@ -547,6 +563,8 @@ void mbm_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle)
  */
 HAL_StatusTypeDef mbm_RespTimeoutRestart(mbmUart_t* mbmu)
 {
+	assert_param(mbmu);
+
 	return (HAL_StatusTypeDef)osMessagePut(
 			mbmu->toutQ.msgQId_rxTimeout, mbmu->toutQ.respTimeout, osWaitForever);
 }
@@ -557,6 +575,8 @@ HAL_StatusTypeDef mbm_RespTimeoutRestart(mbmUart_t* mbmu)
  */
 HAL_StatusTypeDef mbm_RespTimeoutStop(mbmUart_t* mbmu)
 {
+	assert_param(mbmu);
+
 	return (HAL_StatusTypeDef)osMessagePut(
 			mbmu->toutQ.msgQId_rxTimeout, 0, osWaitForever);
 }
