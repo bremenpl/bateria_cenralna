@@ -16,6 +16,9 @@
 #define		RC_NO_OF_REG		128
 #define 	RC_NO_OF_COILS		(RC_NO_OF_REG * 8)
 
+#define 	REL_LED_GPIO		GPIOA
+#define 	REL_LED_PIN			GPIO_PIN_5
+
 /* Enums and structs ---------------------------------------------------------*/
 
 /*

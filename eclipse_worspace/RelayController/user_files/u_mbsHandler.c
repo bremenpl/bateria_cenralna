@@ -131,13 +131,19 @@ void rc_UpdateRegChanges(const uint16_t reg)
 
 			// relay state
 			if (rcRegMap.reg[reg] & (1 << e_rcStatusMask_RelayStateW))
+			{
 				rcRegMap.reg[e_rcRegMap_Status] |= 1 << e_rcStatusMask_RelayStateR;
+				HAL_GPIO_WritePin(REL_LED_GPIO, REL_LED_PIN, 1);
+			}
 			else
+			{
 				rcRegMap.reg[e_rcRegMap_Status] &= ~(1 << e_rcStatusMask_RelayStateR);
+				HAL_GPIO_WritePin(REL_LED_GPIO, REL_LED_PIN, 0);
+			}
 
 			// TODO: change the state of that relay
 
-			// blackout behavious
+			// blackout behavior
 			if (rcRegMap.reg[reg] & (1 << e_rcStatusMask_BlackoutBehaviorW))
 				rcRegMap.reg[e_rcRegMap_Status] |= 1 << e_rcStatusMask_BlackoutBehaviorR;
 			else

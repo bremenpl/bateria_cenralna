@@ -54,6 +54,7 @@
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
+mbsUart_t mbsu;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
@@ -96,8 +97,17 @@ int main(void)
 
   /* USER CODE BEGIN 2 */
 
-  mbs_Init(&huart1, 5);
-  mbsHandler_Init();
+  	// set slave address
+	mbsu.slaveAddr = 5;
+
+	// set uart handle
+	mbsu.mbg.handle = &huart1;
+
+	// set number of frames in the slave receiver queue
+	mbsu.mbg.rxQ.framesBufLen = 2;
+
+	mbs_Init(&mbsu, 1);
+	mbsHandler_Init();
 
   /* USER CODE END 2 */
 
