@@ -16,86 +16,118 @@
 
 /* Private variables ---------------------------------------------------------*/
 
-static osMessageQId mbm_msgQId_rX;
-static osThreadId mbm_sysId_rX;
-static mbgFrame_t mbm_rxFrames[MBM_RCV_QUEUE_SIZE];
-static uint32_t mbm_rxFramesIndex;
-
-static mbgUart_t mbm_uart;
-static mbgRxState_t mbm_rxState;
-static mbgFrame_t mbm_sentFrame;
-
-static uint32_t mbm_RespTimeout_ms;
-static osMessageQId mbm_msgQId_rxTimeout;
-static osThreadId mbm_sysId_rxTimeout;
+static mbmUart_t* mbm_u[MBS_MAX_NO_OF_MASTERS];
+static uint32_t mbm_mastersNr;
 
 /* Public variables ----------------------------------------------------------*/
 
 /* Fuction prototypes --------------------------------------------------------*/
 void mbm_task_rxDequeue(void const* argument);
 void mbm_task_rxTimeout(void const* argument);
-HAL_StatusTypeDef mbm_ExamineFuncCode(const uint8_t fCode, uint8_t** data_p, uint32_t* len);
-HAL_StatusTypeDef mbm_ExamineData(const mbgFrame_t* const mf,
-								  uint8_t** data_p,
-								  uint32_t* len);
-HAL_StatusTypeDef mbm_RespTimeoutRestart();
-HAL_StatusTypeDef mbm_RespTimeoutStop();
+HAL_StatusTypeDef mbm_ExamineFuncCode(mbmUart_t* mbmu, uint8_t** data_p, uint32_t* len);
+HAL_StatusTypeDef mbm_ExamineData(mbmUart_t* mbmu, uint8_t** data_p, uint32_t* len);
+HAL_StatusTypeDef mbm_RespTimeoutRestart(mbmUart_t* mbmu);
+HAL_StatusTypeDef mbm_RespTimeoutStop(mbmUart_t* mbmu);
+mbmUart_t* mbm_GetModuleFromUartHandle(UART_HandleTypeDef* uart);
 
 /* Function declarations -----------------------------------------------------*/
 
 /*
  * @brief	Initializes the MODBUS Master controller.
- * @param	uartHandle: pointer to a uart HAL handle struct.
- * @param	respTimeout_ms: Response awaiting timeout [ms]
+ * @param	mbmu: pointer to modbus master uart handle
+ * @param	noOfModules: number of modules to initialize (minimum 1)
  * @return	HAL_OK if initialization was succesfull.
  */
-HAL_StatusTypeDef mbm_Init(UART_HandleTypeDef* uartHandle, uint32_t respTimeout_ms)
+HAL_StatusTypeDef mbm_Init(mbmUart_t* mbmu, size_t noOfModules)
 {
-	if (!uartHandle)
-		return HAL_ERROR;
+	// check if modules number is not zero
+	if (!noOfModules)
+		noOfModules = 1;
 
 	HAL_StatusTypeDef retVal = HAL_OK;
-
-	// assign handle, timeout, initialize uart
-	mbm_uart.handle = uartHandle;
-	mbm_RespTimeout_ms = respTimeout_ms;
-	retVal += mbg_UartInit(&mbm_uart);
-
-	// create slave response reception queue.
+	mbm_mastersNr = noOfModules;
+	mbmUart_t* m = 0;
 	osMessageQDef_t msgDef_temp;
-	msgDef_temp.item_sz = sizeof(mbgFrame_t*);
-	msgDef_temp.queue_sz = MBM_RCV_QUEUE_SIZE;
 
-	// create the queue
-	mbm_msgQId_rX = osMessageCreate(&msgDef_temp, NULL);
-	if (!mbm_msgQId_rX)
-		retVal++;
+	// threads definitions
+	osThreadDef(mbmRxTask, mbm_task_rxDequeue, osPriorityAboveNormal, noOfModules, 256);
+	osThreadDef(mbmRxTimTask, mbm_task_rxTimeout, osPriorityHigh, noOfModules, 128);
 
-	// create thread for dequeuing
-	osThreadDef(mbmRxTask, mbm_task_rxDequeue, osPriorityAboveNormal, 0, 256);
-	mbm_sysId_rX = osThreadCreate(osThread(mbmRxTask), NULL);
-	if (!mbm_sysId_rX)
-		retVal++;
+	// do everything for each module
+	for (size_t i = 0; i < noOfModules; i++)
+	{
+		// check mbsu pointers
+		if (!(mbmu + i))
+			return HAL_ERROR;
 
-	// create slave response timeout queue
-	msgDef_temp.item_sz = sizeof(uint32_t);
-	msgDef_temp.queue_sz = 1;
+		// Convenience
+		m = mbmu + i;
 
-	// create the queue
-	mbm_msgQId_rxTimeout = osMessageCreate(&msgDef_temp, NULL);
-	if (!mbm_msgQId_rxTimeout)
-		retVal++;
+		// assign parameter variables
+		mbm_u[i] = m;
 
-	// create thread for dequeuing
-	osThreadDef(mbmRxTimTask, mbm_task_rxTimeout, osPriorityHigh, 0, 128);
-	mbm_sysId_rxTimeout = osThreadCreate(osThread(mbmRxTimTask), NULL);
-	if (!mbm_sysId_rxTimeout)
-		retVal++;
+		// init the generic uart module
+		retVal += mbg_UartInit(&m->mbg);
 
-	// default rx state
-	mbm_rxState = e_mbsRxState_none;
+		// create slave responses reception queue.
+		// In theory one item queue should be enough.
+		// Add some buffer just to be sure.
+		msgDef_temp.item_sz = sizeof(mbgFrame_t*);
+
+		// make sure at least one item queue will be created
+		if (!m->mbg.rxQ.framesBufLen)
+			m->mbg.rxQ.framesBufLen = 1;
+		msgDef_temp.queue_sz = m->mbg.rxQ.framesBufLen;
+
+		// create the queue
+		m->mbg.rxQ.msgQId_rX = osMessageCreate(&msgDef_temp, NULL);
+		if (!m->mbg.rxQ.msgQId_rX)
+			retVal++;
+
+		// create thread for dequeuing
+		m->mbg.rxQ.sysId_rX = osThreadCreate(osThread(mbmRxTask), m);
+		if (!m->mbg.rxQ.sysId_rX)
+			retVal++;
+
+		// create slave response timeout queue
+		msgDef_temp.item_sz = sizeof(uint32_t);
+		msgDef_temp.queue_sz = 1;
+
+		// create the queue
+		m->toutQ.msgQId_rxTimeout = osMessageCreate(&msgDef_temp, NULL);
+		if (!m->toutQ.msgQId_rxTimeout)
+			retVal++;
+
+		// create thread for dequeuing
+		m->toutQ.sysId_rxTimeout = osThreadCreate(osThread(mbmRxTimTask), m);
+		if (!m->toutQ.sysId_rxTimeout)
+			retVal++;
+
+		// default rx state
+		m->mbg.rxState = e_mbsRxState_none;
+	}
 
 	return retVal;
+}
+
+/*
+ * @brief	If \ref uart is found in one of the master structs, the master struct
+ * 			in which it was found is returned. Otherwised zero is returned.
+ * @param	uart: handle
+ * @return	modbus master uart module pointer or zero.
+ */
+mbmUart_t* mbm_GetModuleFromUartHandle(UART_HandleTypeDef* uart)
+{
+	if (!uart)
+		return 0;
+
+	for (size_t i = 0; i < mbm_mastersNr; i++)
+	{
+		if (uart == mbm_u[i]->mbg.handle)
+			return mbm_u[i];
+	}
+
+	return 0;
 }
 
 /*
@@ -105,65 +137,70 @@ HAL_StatusTypeDef mbm_Init(UART_HandleTypeDef* uartHandle, uint32_t respTimeout_
  * @param	nrOfRegs: Number of 16 bit registers to read, starting from \ref startAddr.
  * @param	HAL_OK if request sent succesfully.
  */
-HAL_StatusTypeDef mbm_RequestReadHoldingRegs(uint8_t slaveAddr,
+HAL_StatusTypeDef mbm_RequestReadHoldingRegs(mbmUart_t* mbmu,
+									  uint8_t slaveAddr,
 									  uint16_t startAddr,
 									  uint16_t nrOfRegs)
 {
 	if (!nrOfRegs)
 		return HAL_OK; // nothing to read
 
+	if(!mbmu)
+		return HAL_ERROR;
+
 	// set slave addr
-	mbm_sentFrame.addr = slaveAddr;
+	mbmu->sendFrame.addr = slaveAddr;
 
 	// set function code
-	mbm_sentFrame.code = e_mbFuncCode_ReadHoldingRegisters;
+	mbmu->sendFrame.code = e_mbFuncCode_ReadHoldingRegisters;
 
 	// starting address HI and LO
-	mbm_sentFrame.dataLen = 0;
-	mbm_sentFrame.data[mbm_sentFrame.dataLen++] = (uint8_t)(startAddr >> 8);
-	mbm_sentFrame.data[mbm_sentFrame.dataLen++] = (uint8_t)startAddr;
+	mbmu->sendFrame.dataLen = 0;
+	mbmu->sendFrame.data[mbmu->sendFrame.dataLen++] = (uint8_t)(startAddr >> 8);
+	mbmu->sendFrame.data[mbmu->sendFrame.dataLen++] = (uint8_t)startAddr;
 
 	// quantity of registers HI and :P
-	mbm_sentFrame.data[mbm_sentFrame.dataLen++] = (uint8_t)(nrOfRegs >> 8);
-	mbm_sentFrame.data[mbm_sentFrame.dataLen++] = (uint8_t)nrOfRegs;
+	mbmu->sendFrame.data[mbmu->sendFrame.dataLen++] = (uint8_t)(nrOfRegs >> 8);
+	mbmu->sendFrame.data[mbmu->sendFrame.dataLen++] = (uint8_t)nrOfRegs;
 
 	// send
-	if (mbg_SendFrame(&mbm_uart, &mbm_sentFrame))
+	if (mbg_SendFrame(&mbmu->mbg, &mbmu->sendFrame))
 	{
-		mbm_sentFrame.addr = 0;
+		mbmu->sendFrame.addr = 0;
 		return HAL_ERROR;
 	}
 
 	// start response timeout timer
-	return mbm_RespTimeoutRestart();
+	return mbm_RespTimeoutRestart(mbmu);
 }
 
 /*
  * @brief	Call this method in function code examination routine.
- * @param	fCode: Input parameter, received function code to examine.
+ * @param	mbmu: modbus master uart module pointer.
  * @param	data_p: data pointer under which rx data will be saved,
  * @param	len: length of received data.
- * @return 	HAL_OK if function code recognized
+ * @return	HAL_ERROR if parameters are wrong or when request is unknown
  */
-HAL_StatusTypeDef mbm_ExamineFuncCode(const uint8_t fCode, uint8_t** data_p, uint32_t* len)
+HAL_StatusTypeDef mbm_ExamineFuncCode(mbmUart_t* mbmu, uint8_t** data_p, uint32_t* len)
 {
-	if (!fCode || !data_p || !len)
+	if (!mbmu || !data_p || !len)
 		return HAL_ERROR;
 
 	HAL_StatusTypeDef retVal = HAL_OK;
+	mbmu->mbg.rxState = e_mbsRxState_data;
 
 	// decide what to do next depending on the function code
-	switch (fCode)
+	switch (mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].code)
 	{
 		case e_mbFuncCode_ReadHoldingRegisters:
 		{
 			// Byte count (1), then number of registers read from sent frame
-			*data_p = mbm_rxFrames[mbm_rxFramesIndex].data;
-			uint16_t noOfRegs = (mbm_sentFrame.data[2] << 8) | mbm_sentFrame.data[3];
+			*data_p = mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].data;
+			uint16_t noOfRegs = (mbmu->sendFrame.data[2] << 8) | mbmu->sendFrame.data[3];
 			*len = 1 + noOfRegs * 2; // 1 for byte count and *2 because regs are 16 bit
 
 			// save length for generic purposes, like crc calculation
-			mbm_rxFrames[mbm_rxFramesIndex].dataLen = *len;
+			mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].dataLen = *len;
 			break;
 		}
 
@@ -175,8 +212,9 @@ HAL_StatusTypeDef mbm_ExamineFuncCode(const uint8_t fCode, uint8_t** data_p, uin
 		default:
 		{
 			// same principle as for 1st byte
-			*data_p = &mbm_rxFrames[mbm_rxFramesIndex].code;
+			*data_p = &mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].code;
 			*len = MBG_MAX_DATA_LEN + 3;
+			mbmu->mbg.rxState = e_mbsRxState_none;
 			retVal =  HAL_ERROR; // unknown function code
 		}
 	}
@@ -186,34 +224,34 @@ HAL_StatusTypeDef mbm_ExamineFuncCode(const uint8_t fCode, uint8_t** data_p, uin
 
 /*
  * @brief	Call this method in data examination routine.
- * @param	mf: pointer to the so far gathered frame.
+ * @param	mbmu: modbus master uart module pointer.
  * @param	data_p: data pointer under which rx data will be saved,
  * @param	len: length of received data.
- * @return 	HAL_OK if function code recognized
+ * @return	HAL_ERROR if parameters are wrong or when request is unknown
  */
-HAL_StatusTypeDef mbm_ExamineData(const mbgFrame_t* const mf,
-								  uint8_t** data_p,
-								  uint32_t* len)
+HAL_StatusTypeDef mbm_ExamineData(mbmUart_t* mbmu, uint8_t** data_p, uint32_t* len)
 {
-	if (!mf || !data_p || !len)
+	if (!mbmu || !data_p || !len)
 		return HAL_ERROR;
 
 	HAL_StatusTypeDef retVal = HAL_OK;
 
 	// decide what to do next depending on the function code
-	switch (mf->code)
+	switch (mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].code)
 	{
 		case e_mbFuncCode_ReadHoldingRegisters:
 		{
 			// check if byte count equals No. of registers
-			uint16_t noOfRegs = (mbm_sentFrame.data[2] << 8) | mbm_sentFrame.data[3];
-			if (((uint16_t)mf->data[0] / 2) != noOfRegs)
+			uint16_t noOfRegs = (mbmu->sendFrame.data[2] << 8) | mbmu->sendFrame.data[3];
+			if (((uint16_t)mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].data[0] / 2) !=
+					noOfRegs)
 				goto label_badData;
 			else
 			{
 				// crc stage
-				*data_p = (uint8_t*)&mbm_rxFrames[mbm_rxFramesIndex].crc;
+				*data_p = (uint8_t*)&mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].crc;
 				*len = 2;
+				mbmu->mbg.rxState = e_mbsRxState_crc;
 			}
 			break;
 		}
@@ -222,15 +260,13 @@ HAL_StatusTypeDef mbm_ExamineData(const mbgFrame_t* const mf,
 		{
 			label_badData:
 			// same principle as for 1st byte
-			*data_p = &mbm_rxFrames[mbm_rxFramesIndex].code;
+			*data_p = &mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].code;
 			*len = MBG_MAX_DATA_LEN + 3;
 			retVal =  HAL_ERROR; // unknown function code
 		}
 	}
 
 	return retVal;
-
-
 }
 
 /*
@@ -241,15 +277,17 @@ HAL_StatusTypeDef mbm_ExamineData(const mbgFrame_t* const mf,
  */
 void mbm_uartTxRoutine(UART_HandleTypeDef* uHandle)
 {
-	// check either pointer is proper
-	if (uHandle != mbm_uart.handle)
-		return;
+	// find which module triggered the interrupt
+	mbmUart_t* mbmu = mbm_GetModuleFromUartHandle(uHandle);
+	if (!mbmu)
+		return; // unknown module
 
 	// Enable receiver for the 1st address byte, no rx timeout
-	mbg_EnableReceiver(mbm_uart.handle, &mbm_rxFrames[mbm_rxFramesIndex].addr, 1, 0);
+	mbg_EnableReceiver(mbmu->mbg.handle,
+			&mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].addr, 1, 0);
 
 	// set state
-	mbm_rxState = e_mbsRxState_addr;
+	mbmu->mbg.rxState = e_mbsRxState_addr;
 
 	// TODO turn on global rx timeout
 }
@@ -262,26 +300,29 @@ void mbm_uartTxRoutine(UART_HandleTypeDef* uHandle)
  */
 void mbm_uartRxRoutine(UART_HandleTypeDef* uHandle)
 {
-	// check either pointer is proper
-	if (uHandle != mbm_uart.handle)
-		return;
+	// find which module triggered the interrupt
+	mbmUart_t* mbmu = mbm_GetModuleFromUartHandle(uHandle);
+	if (!mbmu)
+		return; // unknown module
 
 	// define operational vars, set default values
 	uint8_t* data_p = 0;
 	uint32_t len = 0;
 	bool rxTimeoutSet = true;
 
-	// enter state machine and comlete the modbus request frame
-	switch (mbm_rxState)
+	// enter state machine and comlete the modbus response frame
+	switch (mbmu->mbg.rxState)
 	{
 		case e_mbsRxState_addr: // Obtained slave address, check either it matches
 		{
-			if (mbm_rxFrames[mbm_rxFramesIndex].addr == mbm_sentFrame.addr)
+			// next point no matter what
+			data_p = &mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].code;
+
+			if (mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].addr == mbmu->sendFrame.addr)
 			{
-				// request adressed to me, get the function code
-				data_p = &mbm_rxFrames[mbm_rxFramesIndex].code;
+				// response slave addr matches requested one, get the function code
 				len = 1;
-				mbm_rxState = e_mbsRxState_funcCode;
+				mbmu->mbg.rxState = e_mbsRxState_funcCode;
 			}
 			else // no match, wait for rx timeout
 			{
@@ -290,11 +331,11 @@ void mbm_uartRxRoutine(UART_HandleTypeDef* uHandle)
 				 * In theory this is safe, at max possible length data,
 				 * function code and crc members should be filled.
 				 */
-				data_p = &mbm_rxFrames[mbm_rxFramesIndex].code;
 				len = MBG_MAX_DATA_LEN + 3; // 3 for fcode + crc at max length
 
 				// yield slave address error
-				mbm_RespParseErrorSlaveAddr(mbm_rxFrames[mbm_rxFramesIndex].addr);
+				mbm_RespParseErrorSlaveAddr(
+						mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].addr);
 			}
 			break;
 		}
@@ -303,21 +344,18 @@ void mbm_uartRxRoutine(UART_HandleTypeDef* uHandle)
 		{
 			// if the function is known, go further. If not, start from the begging
 			// after timeout. Allow user to handle the error.
-			if (!mbm_ExamineFuncCode(mbm_rxFrames[mbm_rxFramesIndex].code, &data_p, &len))
-				mbm_rxState = e_mbsRxState_data;
-			else // yield function code error
-				mbm_RespParseErrorFuncCode(mbm_rxFrames[mbm_rxFramesIndex].code);
+			if (mbm_ExamineFuncCode(mbmu, &data_p, &len))
+				mbm_RespParseErrorFuncCode(
+						mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].code);
 			break;
 		}
 
 		case e_mbsRxState_data: // received the data
 		{
 			// check data. If its ok go further
-			if (!mbm_ExamineData(&mbm_rxFrames[mbm_rxFramesIndex], &data_p, &len))
-				mbm_rxState = e_mbsRxState_crc; // receive 16 bit CRC
-			else
-				mbm_RespParseErrorData(mbm_rxFrames[mbm_rxFramesIndex].data,
-						mbm_rxFrames[mbm_rxFramesIndex].dataLen);
+			if (mbm_ExamineData(mbmu, &data_p, &len))
+				mbm_RespParseErrorData(mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].data,
+						mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].dataLen);
 			break;
 		}
 
@@ -326,21 +364,21 @@ void mbm_uartRxRoutine(UART_HandleTypeDef* uHandle)
 			// Add a completed frame to the queue, crc will be calculated there
 			// then wait for the rx timeout to restart the receiver
 
-			if (osOK == osMessagePut(mbm_msgQId_rX,
-					(uint32_t)&mbm_rxFrames[mbm_rxFramesIndex], 0))
+			if (osOK == osMessagePut(mbmu->mbg.rxQ.msgQId_rX,
+					(uint32_t)&mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex], 0))
 			{
-				if (++mbm_rxFramesIndex >= MBM_RCV_QUEUE_SIZE)
-					mbm_rxFramesIndex = 0;
+				if (++mbmu->mbg.rxQ.framesIndex >= mbmu->mbg.rxQ.framesBufLen)
+					mbmu->mbg.rxQ.framesIndex = 0;
 			}
 
 			// set default state
-			mbm_rxState = e_mbsRxState_none;
+			mbmu->mbg.rxState = e_mbsRxState_none;
 			break;
 		}
 
 		default: // unknown state, wait for addr byte without timeut
 		{
-			data_p = &mbm_rxFrames[mbm_rxFramesIndex].addr;
+			data_p = &mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].addr;
 			len = 1;
 			rxTimeoutSet = false;
 			break;
@@ -360,12 +398,17 @@ void mbm_uartRxRoutine(UART_HandleTypeDef* uHandle)
  */
 void mbm_task_rxDequeue(void const* argument)
 {
-	// TODO temp
-	mbm_RequestReadHoldingRegs(5, 0, 1);
+	if (!argument)
+		return;
+
+	mbmUart_t* mbmu = (mbmUart_t*)argument;
 
 	osEvent retEvent;
 	mbgFrame_t* mf;
 	uint16_t calcCrc;
+
+	// TODO temp
+	mbm_RequestReadHoldingRegs(mbmu, 5, 0, 1);
 
 	while (1)
 	{
@@ -374,10 +417,10 @@ void mbm_task_rxDequeue(void const* argument)
 		 *	for the time of response creation and sending. the message gas to be
 		 *	dequeued eventually after response is sent.
 		 */
-		retEvent = osMessagePeek(mbm_msgQId_rX, osWaitForever);
+		retEvent = osMessagePeek(mbmu->mbg.rxQ.msgQId_rX, osWaitForever);
 
 		// turn off response timeout timer
-		mbm_RespTimeoutStop();
+		mbm_RespTimeoutStop(mbmu);
 
 		if (retEvent.status == osEventMessage)
 		{
@@ -413,7 +456,7 @@ void mbm_task_rxDequeue(void const* argument)
 
 			// finally remove the item from the queue. No need to check if there is
 			// any message, because this thread is the only dequeuer.
-			osMessageGet(mbm_msgQId_rX, osWaitForever);
+			osMessageGet(mbmu->mbg.rxQ.msgQId_rX, osWaitForever);
 		}
 	}
 }
@@ -423,13 +466,17 @@ void mbm_task_rxDequeue(void const* argument)
  */
 void mbm_task_rxTimeout(void const* argument)
 {
+	if (!argument)
+		return;
+
+	mbmUart_t* mbmu = (mbmUart_t*)argument;
 	osEvent retEvent;
 	uint32_t timeout_ms;
 
 	while (1)
 	{
 		// first wait for timeout information (forever)
-		retEvent = osMessageGet(mbm_msgQId_rxTimeout, osWaitForever);
+		retEvent = osMessageGet(mbmu->toutQ.msgQId_rxTimeout, osWaitForever);
 
 		if (osEventMessage == retEvent.status)
 		{
@@ -440,11 +487,11 @@ void mbm_task_rxTimeout(void const* argument)
 			label_respTimeoutWait:
 
 			// wait for the required timeout
-			retEvent = osMessageGet(mbm_msgQId_rxTimeout, timeout_ms);
+			retEvent = osMessageGet(mbmu->toutQ.msgQId_rxTimeout, timeout_ms);
 
 			// timeout occured
 			if (osEventTimeout == retEvent.status)
-				mbm_uartRxTimeoutRoutine(mbm_uart.handle);
+				mbm_uartRxTimeoutRoutine(mbmu->mbg.handle);
 
 			// timeout restart occured
 			else if (retEvent.status == osEventMessage)
@@ -467,25 +514,28 @@ void mbm_task_rxTimeout(void const* argument)
  */
 void mbm_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle)
 {
-	// check either pointer is proper
-	if (uHandle != mbm_uart.handle)
+	// find module (check either pointer is proper is inside)
+	mbmUart_t* mbmu = mbm_GetModuleFromUartHandle(uHandle);
+	if (!mbmu)
 		return;
 
 	// allow user to handle the timeout
-	if (e_mbsRxState_none != mbm_rxState)
-		mbm_RespRxTimeoutError(mbm_rxState, &mbm_rxFrames[mbm_rxFramesIndex]);
+	if (e_mbsRxState_none != mbmu->mbg.rxState)
+		mbm_RespRxTimeoutError(mbmu->mbg.rxState,
+				&mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex]);
 
 	// We are in t3.5 rx timeout routine,
 	// meaning modbus frame has to be gathered from the beginning.
 
 	// Enable receiver but without rx timeout, wait forever for the 1st address byte
-	mbg_EnableReceiver(mbm_uart.handle, &mbm_rxFrames[mbm_rxFramesIndex].addr, 0, 0);
+	mbg_EnableReceiver(mbmu->mbg.handle,
+			&mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].addr, 0, 0);
 
 	// set rxState to the beginning
-	mbm_rxState = e_mbsRxState_none;
+	mbmu->mbg.rxState = e_mbsRxState_none;
 
 	// clear awaiting slave addr
-	mbm_sentFrame.addr = 0;
+	mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].addr = 0;
 
 	// debug
 	HAL_GPIO_TogglePin(GPIOA, 1 << 5);
@@ -493,20 +543,22 @@ void mbm_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle)
 
 /*
  * @brief	(Re)Starts the response timeout timer.
+ * @param	mbmu: Modbus master module pointer
  */
-HAL_StatusTypeDef mbm_RespTimeoutRestart()
+HAL_StatusTypeDef mbm_RespTimeoutRestart(mbmUart_t* mbmu)
 {
 	return (HAL_StatusTypeDef)osMessagePut(
-			mbm_msgQId_rxTimeout,mbm_RespTimeout_ms, osWaitForever);
+			mbmu->toutQ.msgQId_rxTimeout, mbmu->toutQ.respTimeout, osWaitForever);
 }
 
 /*
  * @brief	Stop the response timeout timer.
+ * @param	mbmu: Modbus master module pointer
  */
-HAL_StatusTypeDef mbm_RespTimeoutStop()
+HAL_StatusTypeDef mbm_RespTimeoutStop(mbmUart_t* mbmu)
 {
 	return (HAL_StatusTypeDef)osMessagePut(
-			mbm_msgQId_rxTimeout, 0,osWaitForever);
+			mbmu->toutQ.msgQId_rxTimeout, 0, osWaitForever);
 }
 
 // overrides

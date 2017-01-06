@@ -14,17 +14,33 @@
 
 /* Defines and macros --------------------------------------------------------*/
 
+#define MBS_MAX_NO_OF_MASTERS	2
 #define MBM_RCV_QUEUE_SIZE		2
 
 /* Enums and structs ---------------------------------------------------------*/
+
+typedef struct
+{
+	mbgUart_t			mbg;				/*!< Generic modbus functions */
+	mbgFrame_t 			sendFrame;			/*!< Stores request data */
+
+	struct
+	{
+		osMessageQId 	msgQId_rxTimeout;	/*!< Response timeout queue */
+		osThreadId 		sysId_rxTimeout;	/*!< Response timeout execution thread ID */
+		uint32_t 		respTimeout;		/*!< Response timeout expressed in ms */
+	} toutQ;
+
+} mbmUart_t;
 
 /* Private variables ---------------------------------------------------------*/
 
 /* Public variables ----------------------------------------------------------*/
 
 /* Fuction prototypes --------------------------------------------------------*/
-HAL_StatusTypeDef mbm_Init(UART_HandleTypeDef* uartHandle, uint32_t respTimeout_ms);
-HAL_StatusTypeDef mbm_RequestReadHoldingRegs(uint8_t slaveAddr,
+HAL_StatusTypeDef mbm_Init(mbmUart_t* mbmu, size_t noOfModules);
+HAL_StatusTypeDef mbm_RequestReadHoldingRegs(mbmUart_t* mbmu,
+									  uint8_t slaveAddr,
 									  uint16_t startAddr,
 									  uint16_t nrOfRegs);
 

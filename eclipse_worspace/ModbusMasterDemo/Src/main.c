@@ -97,7 +97,20 @@ int main(void)
 
   /* USER CODE BEGIN 2 */
 
-  mbm_Init(&huart2, 1000);
+  // before calling the init script, user has to fill in
+  // some application specific information
+  mbmUart_t mbmu;
+
+  // response timeout in ms
+  mbmu.toutQ.respTimeout = 2000;
+
+  // set number of frames in the master receiver queue
+  mbmu.mbg.rxQ.framesBufLen = 2;
+
+  // set uart handle
+  mbmu.mbg.handle = &huart2;
+
+  mbm_Init(&mbmu, 1);
 
   /* USER CODE END 2 */
 

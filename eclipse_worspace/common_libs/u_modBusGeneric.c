@@ -143,6 +143,8 @@ HAL_StatusTypeDef mbg_UartInit(mbgUart_t* uart)
 		retVal++;
 
 	// init frames buffer
+	uart->rxQ.framesIndex = 0;
+
 	if (!uart->rxQ.framesBufLen)
 		retVal++;
 	else

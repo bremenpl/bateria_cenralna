@@ -23,10 +23,8 @@ static uint32_t mbs_slavesNr;
 
 /* Fuction prototypes --------------------------------------------------------*/
 void mbs_task_rxDequeue(void const* argument);
-mbgRxState_t mbs_ExamineFuncCode(mbgFrame_t* frame, const uint8_t fCode,
-		uint8_t** data_p, uint32_t* len);
-mbgRxState_t mbs_ExamineDataLen(mbgFrame_t* frame, const uint8_t fCode,
-		uint8_t** data_p, uint32_t* len);
+HAL_StatusTypeDef mbs_ExamineFuncCode(mbsUart_t* mbsu, uint8_t** data_p, uint32_t* len);
+HAL_StatusTypeDef mbs_ExamineDataLen(mbsUart_t* mbsu, uint8_t** data_p, uint32_t* len);
 HAL_StatusTypeDef mbs_SendErrorResponse(mbgUart_t* uart, mbgFrame_t* mf, mbgExCode_t exCode);
 mbsUart_t* mbs_GetModuleFromUartHandle(UART_HandleTypeDef* uart);
 
@@ -49,11 +47,14 @@ HAL_StatusTypeDef mbs_Init(mbsUart_t* mbsu, size_t noOfModules)
 	mbsUart_t* m = 0;
 	osMessageQDef_t msgDef_temp;
 
+	// threads definitions
+	osThreadDef(mbsRxTask, mbs_task_rxDequeue, osPriorityAboveNormal, noOfModules, 256);
+
 	// do everything for each module
 	for (size_t i = 0; i < noOfModules; i++)
 	{
 		// check mbsu pointers
-		if (!(noOfModules + i))
+		if (!(mbsu + i))
 			return HAL_ERROR;
 
 		// Convenience
@@ -85,7 +86,6 @@ HAL_StatusTypeDef mbs_Init(mbsUart_t* mbsu, size_t noOfModules)
 			retVal++;
 
 		// create thread for dequeuing
-		osThreadDef(mbsRxTask, mbs_task_rxDequeue, osPriorityAboveNormal, noOfModules, 256);
 		m->mbg.rxQ.sysId_rX = osThreadCreate(osThread(mbsRxTask), m);
 		if (!m->mbg.rxQ.sysId_rX)
 			retVal++;
@@ -119,26 +119,23 @@ mbsUart_t* mbs_GetModuleFromUartHandle(UART_HandleTypeDef* uart)
 
 /*
  * @brief	Call this method in function code examination routine.
- * @param	frame: Current rx frame
- * @param	fCode: Input parameter, received function code to examine.
+ * @param	mbsu: modbus slave uart module pointer.
  * @param	data_p: data pointer under which rx data will be saved,
  * @param	len: length of received data.
- * @return	Reception status depending on frame examination.
- * 			Returns \ref e_mbsRxState_none if error.
+ * @return	HAL_ERROR if parameters are wrong or when request is unknown
  */
-mbgRxState_t mbs_ExamineFuncCode(mbgFrame_t* frame, const uint8_t fCode,
-		uint8_t** data_p, uint32_t* len)
+HAL_StatusTypeDef mbs_ExamineFuncCode(mbsUart_t* mbsu, uint8_t** data_p, uint32_t* len)
 {
-	assert_param(fCode);
-	assert_param(data_p);
-	assert_param(len);
+	if (!mbsu || !data_p || !len)
+		return HAL_ERROR;
 
 	// assume known frame
-	mbgRxState_t retVal = e_mbsRxState_data;
-	*data_p = frame->data;
+	mbsu->mbg.rxState = e_mbsRxState_data;
+	*data_p = mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex].data;
+	HAL_StatusTypeDef retVal = HAL_OK;
 
 	// decide what to do next depending on the function code
-	switch (fCode)
+	switch (mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex].code)
 	{
 		case e_mbFuncCode_WriteSingleCoil:
 		case e_mbFuncCode_ReadCoils:
@@ -162,46 +159,46 @@ mbgRxState_t mbs_ExamineFuncCode(mbgFrame_t* frame, const uint8_t fCode,
 		default:
 		{
 			// same principle as for 1st byte
-			*data_p = &frame->code;
+			*data_p = &mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex].code;
 			*len = MBG_MAX_DATA_LEN + 3;
-			retVal =  e_mbsRxState_none; // unknown function code
+			mbsu->mbg.rxState =  e_mbsRxState_none; // unknown function code
+			retVal = HAL_ERROR;
 		}
 	}
 
 	// save length for generic purposes, like crc calculation
-	frame->dataLen = *len;
+	mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex].dataLen = *len;
 
 	return retVal;
 }
 
 /*
  * @brief	Call this method in data length examination routine.
- * @param	frame: Current rx frame
- * @param	fCode: Input parameter, received function code to examine.
+ * @param	mbsu: modbus slave uart module pointer.
  * @param	data_p: data pointer under which rx data will be saved,
  * @param	len: length of received data.
- * @return	Reception status depending on frame examination.
- * 			Returns \ref e_mbsRxState_none if error.
+ * @return	HAL_ERROR if parameters are wrong or when request is unknown
  */
-mbgRxState_t mbs_ExamineDataLen(mbgFrame_t* frame, const uint8_t fCode,
-		uint8_t** data_p, uint32_t* len)
+HAL_StatusTypeDef mbs_ExamineDataLen(mbsUart_t* mbsu, uint8_t** data_p, uint32_t* len)
 {
-	assert_param(fCode);
-	assert_param(data_p);
-	assert_param(len);
-	mbgRxState_t retVal = e_mbsRxState_none;
+	if (!mbsu || !data_p || !len)
+		return HAL_ERROR;
+
+	mbsu->mbg.rxState = e_mbsRxState_none;
+	HAL_StatusTypeDef retVal = HAL_ERROR;
 
 	// decide what to do next depending on the function code
-	switch (fCode)
+	switch (mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex].code)
 	{
 		case e_mbFuncCode_WriteSingleCoil:
 		case e_mbFuncCode_ReadCoils:
 		case e_mbFuncCode_ReadHoldingRegisters:
 		{
 			// Next 2 bytes will be the CRC
-			*data_p = (uint8_t*)&frame->crc;
+			*data_p = (uint8_t*)&mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex].crc;
 			*len = 2;
-			retVal = e_mbsRxState_crc;
+			mbsu->mbg.rxState = e_mbsRxState_crc;
+			retVal = HAL_OK;
 			break;
 		}
 
@@ -209,21 +206,22 @@ mbgRxState_t mbs_ExamineDataLen(mbgFrame_t* frame, const uint8_t fCode,
 		case e_mbFuncCode_WriteMultipleRegisters:
 		{
 			// set pointer to 5th element
-			*data_p = frame->data + 5;
+			*data_p = mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex].data + 5;
 
 			// Last data byte holds the amount of bytes to receive
-			*len = frame->data[4];
-			retVal = e_mbsRxState_data2;
+			*len = mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex].data[4];
+			mbsu->mbg.rxState = e_mbsRxState_data2;
+			retVal = HAL_OK;
 
 			// update length
-			frame->dataLen += *len;
+			mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex].dataLen += *len;
 			break;
 		}
 
 		default:
 		{
 			// same principle as for 1st byte
-			*data_p = &frame->code;
+			*data_p = &mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex].code;
 			*len = MBG_MAX_DATA_LEN + 3;
 		}
 	}
@@ -282,10 +280,12 @@ void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle)
 	{
 		case e_mbsRxState_addr: // Obtained slave address, check either it matches
 		{
+			// next point no matter what
+			data_p = &mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex].code;
+
 			if (mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex].addr == mbsu->slaveAddr)
 			{
 				// request adressed to me, get the function code
-				data_p = &mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex].code;
 				len = 1;
 				mbsu->mbg.rxState = e_mbsRxState_funcCode;
 			}
@@ -296,7 +296,6 @@ void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle)
 				 * In theory this is safe, at max possible length data,
 				 * function code and crc members should be filled.
 				 */
-				data_p = &mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex].code;
 				len = MBG_MAX_DATA_LEN + 3; // 3 for fcode + crc at max length
 			}
 			break;
@@ -306,19 +305,14 @@ void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle)
 		{
 			// if the function is known, go further. If not, start from the begging
 			// after timeout
-			mbsu->mbg.rxState = mbs_ExamineFuncCode(
-					&mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex],
-					mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex].code, &data_p, &len);
+			mbs_ExamineFuncCode(mbsu, &data_p, &len);
 			break;
 		}
 
 		case e_mbsRxState_data: // received the data (length/ registers)
 		{
 			// Handle the data more further. Either receive more or wait for CRC
-			mbsu->mbg.rxState = mbs_ExamineDataLen(
-					&mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex],
-					mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex].code,
-					&data_p, &len);
+			mbs_ExamineDataLen(mbsu, &data_p, &len);
 			break;
 		}
 
@@ -389,6 +383,9 @@ void mbs_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle)
  */
 void mbs_task_rxDequeue(void const* argument)
 {
+	if (!argument)
+		return;
+
 	mbsUart_t* mbsu = (mbsUart_t*)argument;
 
 	// Initially enable receiver for the 1st address byte, no rx timeout
@@ -403,7 +400,7 @@ void mbs_task_rxDequeue(void const* argument)
 	{
 		/*
 		 * 	Peek is used instead of get, in order to keep the message in the queue
-		 *	for the time of response creation and sending. the message gas to be
+		 *	for the time of response creation and sending. the message has to be
 		 *	dequeued eventually after response is sent.
 		 */
 		retEvent = osMessagePeek(mbsu->mbg.rxQ.msgQId_rX, osWaitForever);
