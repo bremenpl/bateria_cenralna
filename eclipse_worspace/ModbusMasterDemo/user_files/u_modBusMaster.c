@@ -441,7 +441,7 @@ void mbm_task_rxDequeue(void const* argument)
 				{
 					case e_mbFuncCode_ReadHoldingRegisters:
 					{
-						mbs_CheckReadHoldingRegistersRequest(mf);
+						mbm_CheckReadHoldingRegisters(mf);
 						break;
 					}
 
@@ -638,8 +638,7 @@ __attribute__((weak)) void mbm_RespCrcMatchError(uint16_t rcvCrc, uint16_t calcC
  * @brief	The default read holding registers response function.
  * @param	mf: pointer to a modbus frame struct.
  */
-__attribute__((weak)) void mbs_CheckReadHoldingRegistersRequest(
-		const mbgFrame_t* const mf) { }
+__attribute__((weak)) void mbm_CheckReadHoldingRegisters(const mbgFrame_t* const mf) { }
 
 
 

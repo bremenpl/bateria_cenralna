@@ -40,5 +40,10 @@
 			<type>2</type>
 			<location>M:/Github/bateria_cenralna/eclipse_worspace/ModbusMasterDemo/user_files</location>
 		</link>
+		<link>
+			<name>mbs</name>
+			<type>2</type>
+			<location>M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/user_files</location>
+		</link>
 	</linkedResources>
 </projectDescription>

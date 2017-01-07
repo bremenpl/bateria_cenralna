@@ -463,7 +463,7 @@ void mbs_task_rxDequeue(void const* argument)
  * @param	mf: pointer to a modbus frame struct.
  * @return  exception code, 0 if function executed properly.
  */
-__attribute__((weak)) mbgExCode_t mbs_CheckReadHoldingRegistersRequest(mbgFrame_t* mf)
+__attribute__((weak)) mbgExCode_t mbs_CheckReadHoldingRegisters(mbgFrame_t* mf)
 {
 	return e_mbsExCode_illegalDataAddr;
 }

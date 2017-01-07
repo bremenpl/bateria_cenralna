@@ -14,11 +14,9 @@
 /* Enums and structs ---------------------------------------------------------*/
 
 /* Private variables ---------------------------------------------------------*/
-char lc_dataPrintBuf[MBG_MAX_DATA_LEN * 3]; // max data 2 signs + space
-osMutexId lc_printMutex;
 
 /* Public variables ----------------------------------------------------------*/
-mbmUart_t mbmu;
+lc_t	lc;
 
 /* Fuction prototypes --------------------------------------------------------*/
 
@@ -31,13 +29,7 @@ HAL_StatusTypeDef lcHandler_Init()
 {
 	HAL_StatusTypeDef retVal = HAL_OK;
 
-	// create print mutex
-	osMutexDef_t tempMutDef;
-	lc_printMutex = osMutexCreate(&tempMutDef);
-	assert_param(lc_printMutex);
-
-	if (!lc_printMutex)
-		retVal++;
+	// TODO add ping thread
 
 	return retVal;
 }
@@ -47,7 +39,7 @@ HAL_StatusTypeDef lcHandler_Init()
  * @brief	Read holding registers override function
  * @param	mf: pointer to a modbus frame struct.
  */
-void mbs_CheckReadHoldingRegistersRequest(const mbgFrame_t* const mf)
+void mbm_CheckReadHoldingRegisters(const mbgFrame_t* const mf)
 {
 	log_PushLine(e_logLevel_Info, "Read Holding registers response");
 }
@@ -60,23 +52,30 @@ void mbs_CheckReadHoldingRegistersRequest(const mbgFrame_t* const mf)
 void mbg_uartPrintFrame(const mbgFrame_t* const mf)
 {
 	assert_param(mf);
+	char databuf[LC_MAX_PRINT_CHARS];
 
 	char txtType[] = "RESP";
 	if (e_mbgMesgType_Request == mf->msgType)
 		sprintf(txtType, "%s", "REQT");
 
-	// lock printing
-	osMutexWait(lc_printMutex, osWaitForever);
+	if ((mf->dataLen * 3) <= (LC_MAX_PRINT_CHARS - 6))
+	{
+		for (uint32_t i = 0; i < mf->dataLen; i++)
+			sprintf(databuf + (i * 3), "%02X ", mf->data[i]);
+	}
+	else
+	{
+		uint32_t i;
+		for (i = 0; i < ((LC_MAX_PRINT_CHARS / 3) - 2); i++)
+			sprintf(databuf + (i * 3), "%02X ", mf->data[i]);
 
-	for (uint32_t i = 0; i < mf->dataLen; i++)
-		sprintf(lc_dataPrintBuf + (i * 3), "%02X ", mf->data[i]);
+		// append dots so user reading the log will know its not the full msg
+		sprintf(databuf + (i * 3),"%s", "... ");
+	}
 
 	// print
 	log_PushLine(e_logLevel_Info, "%s: SADDR:0x%X FCODE:%u DLEN:%u DATA:%sCRC:0x%X",
-			txtType, mf->addr, mf->code, mf->dataLen, lc_dataPrintBuf, mf->crc);
-
-	// enable printing
-	osMutexRelease(lc_printMutex);
+			txtType, mf->addr, mf->code, mf->dataLen, databuf, mf->crc);
 }
 
 

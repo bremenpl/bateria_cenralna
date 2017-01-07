@@ -51,7 +51,7 @@ void mbm_RespParseError();
 void mbm_RespRxTimeoutError(mbgRxState_t state, const mbgFrame_t* const mf);
 void mbm_RespCrcMatchError(uint16_t rcvCrc, uint16_t calcCrc);
 
-void mbs_CheckReadHoldingRegistersRequest(const mbgFrame_t* const mf);
+void mbm_CheckReadHoldingRegisters(const mbgFrame_t* const mf);
 
 
 /* Function declarations -----------------------------------------------------*/

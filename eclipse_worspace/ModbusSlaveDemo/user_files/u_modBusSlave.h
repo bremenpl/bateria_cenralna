@@ -39,7 +39,6 @@ typedef struct
 HAL_StatusTypeDef mbs_Init(mbsUart_t* mbsu, size_t noOfModules);
 
 // override functions
-mbgExCode_t mbs_CheckReadHoldingRegistersRequest(mbgFrame_t* mf);
 mbgExCode_t mbs_CheckReadCoils(mbgFrame_t* mf);
 mbgExCode_t mbs_CheckWriteSingleCoil(mbgFrame_t* mf);
 

@@ -109,15 +109,15 @@ int main(void)
   // some application specific information
 
   // response timeout in ms
-  mbmu.toutQ.respTimeout = 2000;
+  lc.mbm.toutQ.respTimeout = 2000;
 
   // set number of frames in the master receiver queue
-  mbmu.mbg.rxQ.framesBufLen = 2;
+  lc.mbm.mbg.rxQ.framesBufLen = 2;
 
   // set uart handle
-  mbmu.mbg.handle = &huart1;
+  lc.mbm.mbg.handle = &huart1;
 
-  mbm_Init(&mbmu, 1);
+  mbm_Init(&lc.mbm, 1);
   lcHandler_Init();
 
   /* USER CODE END 2 */
