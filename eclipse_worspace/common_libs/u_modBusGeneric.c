@@ -71,8 +71,7 @@ uint16_t mbg_CalculateCrc2(uint8_t* data, size_t len)
 		crc &= 0xFFFF;
 	}
 
-	crc = crc_reflect(crc & 0xFFFF, 16) ^ 0x0000;
-	return (crc >> 8) | (crc << 8); // swap bytes
+	return crc_reflect(crc & 0xFFFF, 16) ^ 0x0000;
 }
 
 /*
@@ -105,7 +104,6 @@ HAL_StatusTypeDef mbg_CheckCrc(const mbgFrame_t* const mf, uint16_t* crc)
 
 	// Calculate crc
 	uint16_t calcCrc = mbg_CalculateCrc2(buf, i);
-	calcCrc = (calcCrc >> 8) | (calcCrc << 8); // swap back
 
 	// save calculated crc
 	if (crc)
@@ -205,12 +203,21 @@ HAL_StatusTypeDef mbg_SendFrame(mbgUart_t* uart, mbgFrame_t* mf)
 	// Calculate crc
 	uint16_t calcCrc = mbg_CalculateCrc2(uart->buf, uart->len);
 
-	// add the crc to the buffer
-	uart->buf[uart->len++] = (uint8_t)(calcCrc >> 8);
+	// add the crc to the buffer (inverse order)
 	uart->buf[uart->len++] = (uint8_t)calcCrc;
+	uart->buf[uart->len++] = (uint8_t)(calcCrc >> 8);
+
+	// append crc to the frame for printing purposes
+	mf->crc = calcCrc;
 
 	// send the data and return
-	return mbg_SendData(uart);
+	HAL_StatusTypeDef retVal = mbg_SendData(uart);
+
+	// print the frame
+	if (!retVal)
+		mbg_uartPrintFrame(mf);
+
+	return retVal;
 }
 
 /*
@@ -394,6 +401,14 @@ __attribute__((weak)) void mbs_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle)
  * @param	uHandle: pointer to the uart modbus slave struct.
  */
 __attribute__((weak)) void mbm_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle) { }
+
+/*
+ * @brief	ModBus GENERIC weak override function. It can be overriden in any module
+ * 			(master or slave). Use it to print specific messages using your custom logger
+ * 			each time a new message is sent or received (request or response).
+ * @param	mf: pointer to the received/ sent struct.
+ */
+__attribute__((weak)) void mbg_uartPrintFrame(const mbgFrame_t* const mf)  { }
 
 
 

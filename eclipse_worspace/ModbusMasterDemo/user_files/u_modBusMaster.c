@@ -164,6 +164,9 @@ HAL_StatusTypeDef mbm_RequestReadHoldingRegs(mbmUart_t* mbmu,
 	mbmu->sendFrame.data[mbmu->sendFrame.dataLen++] = (uint8_t)(nrOfRegs >> 8);
 	mbmu->sendFrame.data[mbmu->sendFrame.dataLen++] = (uint8_t)nrOfRegs;
 
+	// msg type for printing
+	mbmu->sendFrame.msgType = e_mbgMesgType_Request;
+
 	// send
 	if (mbg_SendFrame(&mbmu->mbg, &mbmu->sendFrame))
 	{
@@ -430,7 +433,10 @@ void mbm_task_rxDequeue(void const* argument)
 			// validate crc
 			if (!mbg_CheckCrc(mf, &calcCrc))
 			{
-				// crc OK, proceed. Check function code
+				// crc OK, proceed. Check function code, print the frame
+				mf->msgType = e_mbgMesgType_Response;
+				mbg_uartPrintFrame(mf);
+
 				switch (mf->code)
 				{
 					case e_mbFuncCode_ReadHoldingRegisters:

@@ -4,8 +4,8 @@ LibFiles=Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_tim.h;Drivers/STM32F0xx_
 [PreviousGenFiles]
 HeaderPath=M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Inc
 SourcePath=M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/Src
-SourceFiles=gpio.h;dma.h;FreeRTOSConfig.h;usart.h;stm32f0xx_it.h;stm32f0xx_hal_conf.h;mxconstants.h;gpio.c;dma.c;freertos.c;usart.c;stm32f0xx_it.c;stm32f0xx_hal_msp.c;main.c;tim.h;tim.c;main.h;
-HeaderFiles=gpio.h;dma.h;FreeRTOSConfig.h;usart.h;stm32f0xx_it.h;stm32f0xx_hal_conf.h;mxconstants.h;tim.h;main.h;
+SourceFiles=gpio.h;dma.h;FreeRTOSConfig.h;usart.h;stm32f0xx_it.h;stm32f0xx_hal_conf.h;mxconstants.h;gpio.c;dma.c;freertos.c;usart.c;stm32f0xx_it.c;stm32f0xx_hal_msp.c;main.c;tim.h;tim.c;main.h;rtc.h;rtc.c;
+HeaderFiles=gpio.h;dma.h;FreeRTOSConfig.h;usart.h;stm32f0xx_it.h;stm32f0xx_hal_conf.h;mxconstants.h;tim.h;main.h;rtc.h;
 
 [PreviousUsedRideFiles]
 HeaderPath=..\Drivers\STM32F0xx_HAL_Driver\Inc;..\Drivers\STM32F0xx_HAL_Driver\Inc\Legacy;..\Middlewares\Third_Party\FreeRTOS\Source\portable\GCC\ARM_CM0;..\Drivers\CMSIS\Device\ST\STM32F0xx\Include;..\Middlewares\Third_Party\FreeRTOS\Source\include;..\Middlewares\Third_Party\FreeRTOS\Source\CMSIS_RTOS;..\Drivers\CMSIS\Include;

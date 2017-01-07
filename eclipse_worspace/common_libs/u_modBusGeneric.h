@@ -83,6 +83,13 @@ typedef enum
 
 } mbgExCode_t;
 
+typedef enum
+{
+	e_mbgMesgType_Request		= 0,
+	e_mbgMesgType_Response		= 1,
+
+} mbgMesgType_t;
+
 /*
  * @brief	Structure representing single ModBus frame. The struct is optimised
  * 			for 32 bit padding (size should be 258 bytes).
@@ -94,6 +101,8 @@ typedef struct
 	uint16_t		dataLen;				/*!< Data field length of the frame */
 	uint8_t			data[MBG_MAX_DATA_LEN];	/*!< Raw data */
 	uint16_t		crc;					/*!< CRC code */
+	mbgMesgType_t	msgType;				/*!< Is it a request or a response? */
+
 } mbgFrame_t;
 
 /*
@@ -145,6 +154,8 @@ void mbm_uartTxRoutine(UART_HandleTypeDef* uHandle);
 
 void mbs_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle);
 void mbm_uartRxTimeoutRoutine(UART_HandleTypeDef* uHandle);
+
+void mbg_uartPrintFrame(const mbgFrame_t* const mf);
 
 /* Function declarations -----------------------------------------------------*/
 
