@@ -51,7 +51,7 @@
 
 /* USER CODE BEGIN Includes */
 
-#include "u_mbmHandler.h"
+#include "u_lc.h"
 #include "u_logger.h"
 #include "u_changelog.h"
 
@@ -108,17 +108,22 @@ int main(void)
   // before calling the init script, user has to fill in
   // some application specific information
 
+  // MASTER
   // response timeout in ms
-  lc.mbm.toutQ.respTimeout = 2000;
+  lc[0].mbm.toutQ.respTimeout = 2000;
 
   // set number of frames in the master receiver queue
-  lc.mbm.mbg.rxQ.framesBufLen = 2;
+  lc[0].mbm.mbg.rxQ.framesBufLen = 2;
 
   // set uart handle
-  lc.mbm.mbg.handle = &huart1;
+  lc[0].mbm.mbg.handle = &huart1;
 
-  mbm_Init(&lc.mbm, 1);
-  lcHandler_Init();
+  mbm_Init(&lc[0].mbm, LC_NO_OF_MODULES);
+
+  // SLAVE
+  // TODO add slave descriptor
+
+  lc_Init();
 
   /* USER CODE END 2 */
 

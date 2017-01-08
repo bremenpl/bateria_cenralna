@@ -411,8 +411,8 @@ void mbm_task_rxDequeue(void const* argument)
 	mbgFrame_t* mf;
 	uint16_t calcCrc;
 
-	// TODO temp
-	mbm_RequestReadHoldingRegs(mbmu, 5, 0, 1);
+	// temp
+	//mbm_RequestReadHoldingRegs(mbmu, 5, 0, 1);
 
 	while (1)
 	{
@@ -441,7 +441,7 @@ void mbm_task_rxDequeue(void const* argument)
 				{
 					case e_mbFuncCode_ReadHoldingRegisters:
 					{
-						mbm_CheckReadHoldingRegisters(mf);
+						mbm_CheckReadHoldingRegisters(mbmu, mf);
 						break;
 					}
 
@@ -560,7 +560,7 @@ void mbm_RespTimeoutAction(mbmUart_t* mbmu)
 	mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].addr = 0;
 
 	// debug
-	HAL_GPIO_TogglePin(GPIOA, 1 << 5);
+	//HAL_GPIO_TogglePin(GPIOA, 1 << 5);
 }
 
 /*
@@ -636,9 +636,11 @@ __attribute__((weak)) void mbm_RespCrcMatchError(uint16_t rcvCrc, uint16_t calcC
 
 /*
  * @brief	The default read holding registers response function.
+ * @param	mbm: master module pointer.
  * @param	mf: pointer to a modbus frame struct.
  */
-__attribute__((weak)) void mbm_CheckReadHoldingRegisters(const mbgFrame_t* const mf) { }
+__attribute__((weak)) void mbm_CheckReadHoldingRegisters(const mbmUart_t* const mbm,
+		const mbgFrame_t* const mf) { }
 
 
 
