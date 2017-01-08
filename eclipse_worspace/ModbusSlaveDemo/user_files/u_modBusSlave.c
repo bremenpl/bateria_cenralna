@@ -423,7 +423,7 @@ void mbs_task_rxDequeue(void const* argument)
 
 					case e_mbFuncCode_ReadHoldingRegisters:
 					{
-						exCode = mbs_CheckReadHoldingRegistersRequest(mf);
+						exCode = mbs_CheckReadHoldingRegisters(mf);
 						break;
 					}
 
