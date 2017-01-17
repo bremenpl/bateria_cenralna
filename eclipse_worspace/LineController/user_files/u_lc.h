@@ -18,8 +18,9 @@
 
 #define LC_NO_OF_MODULES		1
 #define LC_NO_OF_RCS			20
+#define LC_NO_OF_PRES_BYTES		((LC_NO_OF_RCS / 8) + 1)
 
-#define LC_PING_PERIOD			100
+#define LC_PING_PERIOD			60
 #define LC_PING_TIMEOUT			50
 #define LC_RESP_QUEUE_TIMEOUT	500
 #define LC_PINGS_TILL_PRESENT	3
@@ -54,7 +55,7 @@ typedef struct
 } rc_t;
 
 /*
- * @brief	This structure provides all relevant information needed for indentification
+ * @brief	This structure provides all relevant information needed for identification
  * 			of the arrived slave response to the master.
  */
 typedef struct
@@ -78,8 +79,10 @@ typedef struct
 	mRespPack_t		rcResp;				/*!< Relay controller response buffer (1 item) */
 
 	rc_t			rc[LC_NO_OF_RCS];	/*!< Relay controllers */
-
-
+	uint8_t			rcPresBits[LC_NO_OF_PRES_BYTES];
+										/*!< Relay controllers statuses arranged one by
+										 * one so it is esier to read them at once
+										 */
 } lc_t;
 
 

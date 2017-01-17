@@ -46,6 +46,7 @@
 extern DMA_HandleTypeDef hdma_usart1_rx;
 extern DMA_HandleTypeDef hdma_usart1_tx;
 extern DMA_HandleTypeDef hdma_usart2_tx;
+extern DMA_HandleTypeDef hdma_usart2_rx;
 extern UART_HandleTypeDef huart1;
 extern UART_HandleTypeDef huart2;
 
@@ -98,6 +99,7 @@ void DMA1_Ch2_3_DMA2_Ch1_2_IRQHandler(void)
 
   /* USER CODE END DMA1_Ch2_3_DMA2_Ch1_2_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_usart1_tx);
+  HAL_DMA_IRQHandler(&hdma_usart2_rx);
   /* USER CODE BEGIN DMA1_Ch2_3_DMA2_Ch1_2_IRQn 1 */
 
   /* USER CODE END DMA1_Ch2_3_DMA2_Ch1_2_IRQn 1 */
@@ -144,6 +146,9 @@ void USART2_IRQHandler(void)
   /* USER CODE END USART2_IRQn 0 */
   HAL_UART_IRQHandler(&huart2);
   /* USER CODE BEGIN USART2_IRQn 1 */
+
+  // rx timeout handle
+  mbg_ClearRTOCF_Flag(&huart2);
 
   /* USER CODE END USART2_IRQn 1 */
 }

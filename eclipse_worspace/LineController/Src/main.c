@@ -102,8 +102,9 @@ int main(void)
 
   /* USER CODE BEGIN 2 */
 
-  Calendar_Init(&hrtc);
-  log_Init(&huart2, CONFIG_LOG_UART, e_logLevel_Debug, &firmwareNr);
+  // TODO add new uart for the logger
+  //Calendar_Init(&hrtc);
+  //log_Init(&huart2, CONFIG_LOG_UART, e_logLevel_Debug, &firmwareNr);
 
   // before calling the init script, user has to fill in
   // some application specific information
@@ -121,7 +122,16 @@ int main(void)
   mbm_Init(&lc[0].mbm, LC_NO_OF_MODULES);
 
   // SLAVE
-  // TODO add slave descriptor
+  // addr
+  lc[0].mbs.slaveAddr = 3;
+
+  // set number of frames in the slave receiver queue
+  lc[0].mbs.mbg.rxQ.framesBufLen = 2;
+
+  // set uart handle
+  lc[0].mbs.mbg.handle = &huart2;
+
+  mbs_Init(&lc[0].mbs, LC_NO_OF_MODULES);
 
   lc_Init();
 

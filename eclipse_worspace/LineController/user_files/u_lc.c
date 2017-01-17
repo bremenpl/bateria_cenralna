@@ -21,6 +21,7 @@ lc_t	lc[LC_NO_OF_MODULES];
 /* Fuction prototypes --------------------------------------------------------*/
 HAL_StatusTypeDef lc_pingDevice(lc_t* l, uint32_t addr, uint16_t* status);
 void lc_managePresence(rc_t* rc, HAL_StatusTypeDef respStatus);
+void lc_manageRcPresBits(lc_t* l, const uint32_t rcNr);
 
 void lc_pingTask(void const* argument);
 
@@ -54,7 +55,7 @@ HAL_StatusTypeDef lc_Init()
 		if (!lc[i].sysId_Ping)
 			retVal++;
 
-		// assign addresses of RC, they are needed firther in the code
+		// assign addresses of RC, they are needed further in the code
 		for (uint32_t k = 0; k < LC_NO_OF_RCS; k++)
 			lc[i].rc[k].addr = k + 1;
 	}
@@ -84,6 +85,9 @@ void lc_pingTask(void const* argument)
 
 			// try to ping next slave
 			lc_managePresence(&l->rc[i] ,lc_pingDevice(l, addr, &l->rc[i].status));
+
+			// maintain presence table for the master PC
+			lc_manageRcPresBits(l, i);
 
 			// so the intervals between pings are const
 			vTaskDelayUntil( &xLastWakeTime, (LC_PING_PERIOD / portTICK_RATE_MS));
@@ -116,7 +120,7 @@ HAL_StatusTypeDef lc_pingDevice(lc_t* l, uint32_t addr, uint16_t* status)
 
 	// if frame was sent successful (or rather is being sent through DMA right now),
 	// await for the response in here for the timeout time
-	retEvent = osMessageGet(l->msgQId_Ping, LC_PING_TIMEOUT);
+	retEvent = osMessagePeek(l->msgQId_Ping, LC_PING_TIMEOUT);
 	HAL_GPIO_WritePin(LC_PINGLED_GPIO, LC_PINGLED_PIN, 0);
 
 	if (osEventMessage == retEvent.status)
@@ -132,6 +136,9 @@ HAL_StatusTypeDef lc_pingDevice(lc_t* l, uint32_t addr, uint16_t* status)
 
 		// save status
 		*status = (resp->rcRespFrame.data[1] << 8) || (resp->rcRespFrame.data[2] >> 8);
+
+		// remove the message
+		osMessageGet(l->msgQId_Ping, LC_PING_TIMEOUT);
 		return HAL_OK;
 	}
 
@@ -186,6 +193,29 @@ void lc_managePresence(rc_t* rc, HAL_StatusTypeDef respStatus)
 	}
 }
 
+/*
+ * @brief	Sets or clears the presence bits (they start at address 0) of the relay
+ * 			controllers table. This is used for the master PC to check either RC's
+ * 			are present or not.
+ * @param	l: Line controller module
+ * @param	rcNr: rc to manage
+ */
+void lc_manageRcPresBits(lc_t* l, const uint32_t rcNr)
+{
+	assert_param(l);
+	if (rcNr >= LC_NO_OF_RCS)
+		return;
+
+	uint32_t byte = rcNr / 8;
+	uint32_t bit = rcNr % 8;
+
+	// check presence
+	if (l->rc[rcNr].presence)
+		l->rcPresBits[byte] |=  (1 << bit);
+	else
+		l->rcPresBits[byte] &= ~(1 << bit);
+}
+
 // overrides
 /*
  * @brief	Read holding registers override function
@@ -213,6 +243,60 @@ void mbm_CheckReadHoldingRegisters(const mbmUart_t* const mbm, const mbgFrame_t*
 				log_PushLine(e_logLevel_Warning, "Unable to enque the response");
 		}
 	}
+}
+
+mbgExCode_t mbs_CheckReadHoldingRegisters(const mbsUart_t* const mbs, mbgFrame_t* mf)
+{
+	assert_param(mf);
+	mbgExCode_t retVal = e_mbsExCode_illegalDataAddr;
+	uint32_t k;
+	bool found = false;
+
+	// find object
+	for (k = 0; k < LC_NO_OF_MODULES; k++)
+	{
+		if (mbs == &lc[k].mbs)
+		{
+			found = true;
+			break;
+		}
+	}
+
+	if (!found)
+		return retVal;
+
+	// start address
+	uint16_t startAddr = mf->data[1] | ((uint16_t)mf->data[0] << 8);
+
+	// quantity of registers
+	uint16_t nrOfRegs = mf->data[3] | ((uint16_t)mf->data[2] << 8);
+
+	// byte count
+	mf->data[0] = nrOfRegs * 2; // nr of registers * 2 (bytes)
+
+	switch (startAddr)
+	{
+		case 0: // fixed presence status
+		{
+			// check if registers to read are in range
+			if ((startAddr + nrOfRegs) > LC_NO_OF_PRES_BYTES)
+				return e_mbsExCode_illegalDataAddr;
+
+			// register values
+			for (uint32_t addr = startAddr, i = 1; i < (mf->data[0] + 1); i += 2, addr++)
+			{
+				mf->data[i] = (uint8_t)(lc[k].rcPresBits[addr] >> 8); 	// HI
+				mf->data[i + 1] = (uint8_t)lc[k].rcPresBits[addr]; 		// LO
+			}
+
+			retVal = e_mbsExCode_noError;
+			break;
+		}
+
+		default: retVal = e_mbsExCode_illegalDataAddr;
+	}
+
+	return retVal;
 }
 
 /*
