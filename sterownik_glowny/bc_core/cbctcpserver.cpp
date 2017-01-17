@@ -54,7 +54,7 @@ void CBcTcpServer::on_modbusStatusChanged(quint16 status)
         rb.append((quint8)(status >> 8));
 
         // send broadcast data, maybe change this later
-        sendData2Socket(rb);
+        emit sendData2Socket(rb);
     }
 }
 

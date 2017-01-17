@@ -33,7 +33,8 @@ const QString Csmrm::convertArray2HexString(const QByteArray& array)
 
     foreach (quint8 byte, array)
     {
-        hexVals.append(QString::number(byte, 16));
+        //hexVals.append(QString::number(byte, 16));
+        hexVals.append(QString("%1").arg(byte, 2, 16, QChar('0')));
         hexVals.append(" ");
     }
 
@@ -135,7 +136,7 @@ qint32 Csmrm::digForResponse(const QByteArray& buf)
                             m_rxRawBytes.append(byte);
 
                             // check when to move to crc phase
-                            if ((m_currentIndex - 3) >= (quint32)mp_rxFrame->data[0])
+                            if ((m_currentIndex - 3) > (quint32)mp_rxFrame->data[0])
                                 m_rxState = EResponseState::Crc;
                         }
                         break;
@@ -167,7 +168,7 @@ qint32 Csmrm::digForResponse(const QByteArray& buf)
 
                     // print raw data
                     CBcLogger::instance()->print(MLL::ELogLevel::LDebug)
-                            << "Raw response bytes: " << convertArray2HexString(m_rxRawBytes);
+                            << "MB RECV: " << convertArray2HexString(m_rxRawBytes);
 
                     if (frameCrc == mp_rxFrame->crc) // match
                         parseResponse(mp_rxFrame);
@@ -255,7 +256,14 @@ qint32 Csmrm::sendFrame(const SModBusFrame& frame)
     rb.append((quint8)frame.crc);
 
     // send the data through serial port
-    return write(rb);
+    quint32 retVal = write(rb);
+
+    // print raw data
+    if (retVal)
+        CBcLogger::instance()->print(MLL::ELogLevel::LDebug)
+                << "MB SENT: " << convertArray2HexString(rb);
+
+    return retVal;
 }
 
 /*!
