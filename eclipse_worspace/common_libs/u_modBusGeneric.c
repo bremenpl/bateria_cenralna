@@ -201,14 +201,11 @@ HAL_StatusTypeDef mbg_SendFrame(mbgUart_t* uart, mbgFrame_t* mf)
 		uart->buf[uart->len] = mf->data[k];
 
 	// Calculate crc
-	uint16_t calcCrc = mbg_CalculateCrc2(uart->buf, uart->len);
+	mf->crc = mbg_CalculateCrc2(uart->buf, uart->len);
 
 	// add the crc to the buffer (inverse order)
-	uart->buf[uart->len++] = (uint8_t)calcCrc;
-	uart->buf[uart->len++] = (uint8_t)(calcCrc >> 8);
-
-	// append crc to the frame for printing purposes
-	mf->crc = calcCrc;
+	uart->buf[uart->len++] = (uint8_t)mf->crc;
+	uart->buf[uart->len++] = (uint8_t)(mf->crc >> 8);
 
 	// send the data and return
 	HAL_StatusTypeDef retVal = mbg_SendData(uart);

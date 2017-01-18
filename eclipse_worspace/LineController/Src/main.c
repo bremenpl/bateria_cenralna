@@ -99,12 +99,13 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   MX_RTC_Init();
+  MX_USART3_UART_Init();
 
   /* USER CODE BEGIN 2 */
 
   // TODO add new uart for the logger
-  //Calendar_Init(&hrtc);
-  //log_Init(&huart2, CONFIG_LOG_UART, e_logLevel_Debug, &firmwareNr);
+  Calendar_Init(&hrtc);
+  log_Init(&huart3, CONFIG_LOG_UART, e_logLevel_Debug, &firmwareNr);
 
   // before calling the init script, user has to fill in
   // some application specific information
@@ -195,10 +196,11 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1|RCC_PERIPHCLK_USART2
-                              |RCC_PERIPHCLK_RTC;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART3|RCC_PERIPHCLK_USART1
+                              |RCC_PERIPHCLK_USART2|RCC_PERIPHCLK_RTC;
   PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK1;
   PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
+  PeriphClkInit.Usart3ClockSelection = RCC_USART3CLKSOURCE_PCLK1;
   PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {

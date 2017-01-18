@@ -47,8 +47,10 @@ extern DMA_HandleTypeDef hdma_usart1_rx;
 extern DMA_HandleTypeDef hdma_usart1_tx;
 extern DMA_HandleTypeDef hdma_usart2_tx;
 extern DMA_HandleTypeDef hdma_usart2_rx;
+extern DMA_HandleTypeDef hdma_usart3_tx;
 extern UART_HandleTypeDef huart1;
 extern UART_HandleTypeDef huart2;
+extern UART_HandleTypeDef huart3;
 
 /******************************************************************************/
 /*            Cortex-M0 Processor Interruption and Exception Handlers         */ 
@@ -114,6 +116,7 @@ void DMA1_Ch4_7_DMA2_Ch3_5_IRQHandler(void)
 
   /* USER CODE END DMA1_Ch4_7_DMA2_Ch3_5_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_usart2_tx);
+  HAL_DMA_IRQHandler(&hdma_usart3_tx);
   /* USER CODE BEGIN DMA1_Ch4_7_DMA2_Ch3_5_IRQn 1 */
 
   /* USER CODE END DMA1_Ch4_7_DMA2_Ch3_5_IRQn 1 */
@@ -151,6 +154,20 @@ void USART2_IRQHandler(void)
   mbg_ClearRTOCF_Flag(&huart2);
 
   /* USER CODE END USART2_IRQn 1 */
+}
+
+/**
+* @brief This function handles USART3 to USART8 global interrupts / USART3 wake-up interrupt through EXTI line 28.
+*/
+void USART3_8_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART3_8_IRQn 0 */
+
+  /* USER CODE END USART3_8_IRQn 0 */
+  HAL_UART_IRQHandler(&huart3);
+  /* USER CODE BEGIN USART3_8_IRQn 1 */
+
+  /* USER CODE END USART3_8_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
