@@ -1,1 +1,4 @@
 Record=TopLevelDocument|FileName=Top.SchDoc
+Record=SheetSymbol|SourceDocument=Top.SchDoc|Designator=CONN|SchDesignator=CONN|FileName=Conn.SchDoc|SymbolType=Normal|RawFileName=Conn.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Top.SchDoc|Designator=EEPROM|SchDesignator=EEPROM|FileName=Eeprom.SchDoc|SymbolType=Normal|RawFileName=Eeprom.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Top.SchDoc|Designator=MCU|SchDesignator=MCU|FileName=Mcu.SchDoc|SymbolType=Normal|RawFileName=Mcu.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
