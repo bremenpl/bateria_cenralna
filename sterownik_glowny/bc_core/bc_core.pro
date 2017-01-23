@@ -22,7 +22,10 @@ SOURCES += main.cpp \
     cbcserialthread.cpp \
     cbcmain.cpp \
     cbctcpserver.cpp \
-    cbcclientthread.cpp
+    cbcclientthread.cpp \
+    cbclcthread.cpp \
+    cbclc.cpp \
+    cbcslavedevice.cpp
 
 HEADERS += \
     ../bc_logger/cbclogger.h \
@@ -31,4 +34,7 @@ HEADERS += \
     cbcserialthread.h \
     cbcmain.h \
     cbctcpserver.h \
-    cbcclientthread.h
+    cbcclientthread.h \
+    cbclcthread.h \
+    cbclc.h \
+    cbcslavedevice.h

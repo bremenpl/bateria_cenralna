@@ -6,10 +6,16 @@
  * \param port: serial port name to be associated with modbus RTU master
  * \param parent: parent object
  */
-CBcSerialThread::CBcSerialThread(const QString& port, QObject *parent) : QThread(parent)
+CBcSerialThread::CBcSerialThread(const QString& port,
+                                 const quint32 noOfPings,
+                                 const quint32 noOfDevices,
+                                 QObject *parent) : QThread(parent)
 {
     // create modbus master
     mp_modbusMaster =  new Csmrm(this);
+    m_curScanDev = 0;
+    m_pingsForPresence = noOfPings;
+    m_noOfDev2Scan = noOfDevices;
 
     // set serial parameters
     mp_modbusMaster->setPortName(port);
@@ -20,8 +26,14 @@ CBcSerialThread::CBcSerialThread(const QString& port, QObject *parent) : QThread
     mp_modbusMaster->setFlowControl(QSerialPort::NoFlowControl);
 
     // connect response slots
-    connect(mp_modbusMaster, SIGNAL(responseReady_ReadHoldingRegisters(const quint8, const QVector<quint16>&)),
-            this, SLOT(on_responseReady_ReadHoldingRegisters(const quint8, const QVector<quint16>&)),
+    connect(mp_modbusMaster, SIGNAL(responseReady_ReadHoldingRegisters(
+                                        const quint8, const quint16, const QVector<quint16>&)),
+            this, SLOT(on_responseReady_ReadHoldingRegisters(
+                           const quint8, const quint16, const QVector<quint16>&)),
+            Qt::UniqueConnection);
+
+    connect(mp_modbusMaster, SIGNAL(responseReady_ReadCoils(const quint8, const quint16, const QVector<bool>&)),
+            this, SLOT(on_responseReady_ReadCoils(const quint8, const quint16, const QVector<bool>&)),
             Qt::UniqueConnection);
 
     // try to open the port
@@ -49,27 +61,141 @@ CBcSerialThread::~CBcSerialThread()
 
     if (mp_pollTimer)
         mp_pollTimer->deleteLater();
+
+    if (mp_respToutTimer)
+        mp_respToutTimer->deleteLater();
+
+    while (m_slaves.size())
+        m_slaves.last()->deleteLater();
+}
+
+/*!
+ * \brief CBcSerialThread::on_setPingParameters
+ * \param noOfPings
+ * \param noOfDevices
+ */
+void CBcSerialThread::on_setPingParameters(const quint32 noOfPings, const quint32 noOfDevices)
+{
+    m_pingsForPresence = noOfPings;
+    m_noOfDev2Scan = noOfDevices;
 }
 
 /*!
  * \brief CBcSerialThread::on_responseReady_ReadHoldingRegisters
  * \param slaveId
+ * \param startAddr
  * \param registers
  */
-void CBcSerialThread::on_responseReady_ReadHoldingRegisters(const quint8 slaveId, const QVector<quint16>& registers)
+void CBcSerialThread::on_responseReady_ReadHoldingRegisters(const quint8 slaveId,
+                                                            const quint16 startAddr,
+                                                            const QVector<quint16>& registers)
 {
-    CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "Read holding registers response from slave %u", slaveId);
+    // turn off response timer
+    mp_respToutTimer->stop();
 
-    // now send the response to connected clients
-    emit statusChanged(registers.last());
+    CBcLogger::instance()->print(MLL::ELogLevel::LInfo,
+                                 "Read holding registers response. SID:%u, SADDR:%u, NOOFREGS:%u",
+                                 slaveId, startAddr, registers.size());
+
+    // check if this is ping
+    switch ((EAddrCodes)startAddr)
+    {
+        case EAddrCodes::Ping:
+        {
+            // manage
+            quint32 index = slaveId - 1;
+
+            // make setters and getters for pings and presence TODO
+
+
+            mp_pollTimer->start();
+            break;
+        }
+
+        default:
+        {
+            responseReady_ReadHoldingRegistersOverride(slaveId, startAddr, registers);
+        }
+    }
+}
+
+/*!
+ * \brief CBcSerialThread::responseReady_ReadHoldingRegistersOverride
+ *        Inheriting classes should place their code here
+ * \param slaveId
+ * \param startAddr
+ * \param registers
+ */
+void CBcSerialThread::responseReady_ReadHoldingRegistersOverride(const quint8 slaveId,
+                                                        const quint16 startAddr,
+                                                        const QVector<quint16>& registers)
+{
+    CBcLogger::instance()->print(MLL::ELogLevel::LCritical,
+                                 "Read holding registers response NOT OVERRIDEN. SID:%u, SADDR:%u, NOOFREGS:%u",
+                                 slaveId, startAddr, registers.size());
+}
+
+void CBcSerialThread::on_responseReady_ReadCoils(const quint8 slaveId,
+                                                 const quint16 startAddr,
+                                                 const QVector<bool>& coils)
+{
+    CBcLogger::instance()->print(MLL::ELogLevel::LInfo,
+                                 "Read coils response. SID:%u, SADDR:%u, NOOFCOILS:%u",
+                                 slaveId, startAddr, coils.size());
 }
 
 /*!
  * \brief CBcSerialThread::on_pollTimeout
+ *        In this thread pinging happens.
  */
 void CBcSerialThread::on_pollTimeout()
 {
-    int temp = mp_modbusMaster->sendRequest_ReadHoldingRegisters(3, 0, 1);
+    int retVal = 0;
+
+    // check slave overflow, scan one slave at a time
+    if (m_curScanDev > m_noOfDev2Scan)
+        m_curScanDev = 1;
+    else
+        m_curScanDev++;
+
+    // read registers
+    retVal = mp_modbusMaster->sendRequest_ReadHoldingRegisters(
+                m_curScanDev, (quint16)EAddrCodes::Ping, NO_OF_PING_REGS);
+
+    if (retVal <= 0)
+        CBcLogger::instance()->print(MLL::ELogLevel::LCritical) << "Unable to ping!";
+
+    // start response timeout timer
+    mp_respToutTimer->start();
+}
+
+/*!
+ * \brief CBcSerialThread::on_respTimeout
+ * If this function is called response timeout occured
+ */
+void CBcSerialThread::on_respTimeout()
+{
+    // check if this was ping
+    if (Csmrm::EFuncCodes::ReadHoldingRegisters == mp_modbusMaster->txFrame().functionCode)
+    {
+        // ping address
+        quint16 addr = (mp_modbusMaster->txFrame().data[0] << 8) | mp_modbusMaster->txFrame().data[1];
+        if ((quint16)EAddrCodes::Ping == addr)
+        {
+            // proper slave
+            if (m_curScanDev == mp_modbusMaster->txFrame().slaveAddr)
+            {
+                // all ok just start
+                mp_pollTimer->start();
+            }
+            else
+            {
+                CBcLogger::instance()->print(MLL::ELogLevel::LWarning,
+                                             "Wrong slave answered in ping %u, should be %u",
+                                             mp_modbusMaster->txFrame().slaveAddr, m_curScanDev);
+            }
+        }
+    }
 }
 
 /*!
@@ -84,8 +210,20 @@ void CBcSerialThread::run()
     connect(mp_pollTimer, SIGNAL(timeout()),
             this, SLOT(on_pollTimeout()), Qt::UniqueConnection);
 
-    mp_pollTimer->setSingleShot(false);
-    mp_pollTimer->setInterval(1000);
+    // create timeout timer
+    mp_respToutTimer = new QTimer();
+
+    // connect it
+    connect(mp_respToutTimer, SIGNAL(timeout()),
+            this, SLOT(on_respTimeout()), Qt::UniqueConnection);
+
+    // set resp timeout timer
+    mp_respToutTimer->setSingleShot(true);
+    mp_respToutTimer->setInterval(100);
+
+    // set and start poll timer
+    mp_pollTimer->setSingleShot(true);
+    mp_pollTimer->setInterval(10);
     mp_pollTimer->start();
 
     exec();

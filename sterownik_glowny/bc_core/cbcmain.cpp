@@ -8,45 +8,51 @@
  */
 CBcMain::CBcMain(QCoreApplication& coreApp, QObject *parent) : QObject(parent)
 {
-    mp_coreApp = &coreApp;
-
     // check parameters
-    int retVal = getParameters(coreApp, m_verbose, m_path, m_ll, m_serialName);
+    int retVal = getOrCteareSettings(coreApp);
     if (0 != retVal)
     {
         if (-1 == retVal)
-            qCritical("Serial port not provided as parameter. Quiting");
+            m_serialsValid = false;
         else
+        {
             qCritical("Parsing user parameters failed (%i). Aborting.", retVal);
-
-        return;
+            return;
+        }
     }
+    else
+        m_serialsValid = true;
 
     // start the logger
-    CBcLogger::instance()->startLogger(m_path, m_verbose, m_ll);
+    CBcLogger::instance()->startLogger(m_logPath, m_verbose, m_ll);
 
-    // start modbus rtu master
-    try
+    // start modbus rtu master only if the serial port is valid
+    if (m_serialsValid)
     {
-        mp_serialThread = new CBcSerialThread(m_serialName);
-        mp_serialThread->moveToThread(mp_serialThread);
-        mp_serialThread->start(QThread::HighPriority);
+        try
+        {
+            mp_lcSerialThread = new CBcLcThread(m_lcSerialName, m_noOfPings, m_noOfLcSlaves);
+            mp_lcSerialThread->moveToThread(mp_lcSerialThread);
+            mp_lcSerialThread->start(QThread::HighPriority);
+
+            // connect status change signal
+            connect(mp_lcSerialThread, SIGNAL(statusChanged(quint16)),
+                    &m_tcpServer, SLOT(on_modbusStatusChanged(quint16)), Qt::DirectConnection);
+        }
+        catch (int retVal)
+        {
+            QThread::usleep(500);
+            return;
+        }
     }
-    catch (int retVal)
-    {
-        QThread::usleep(500);
-        return;
-    }
+    else
+        CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "No serial port for LC provided");
 
     // start TCP server
     m_tcpServer.startServer();
 
-    // connect status change signal
-    connect(mp_serialThread, SIGNAL(statusChanged(quint16)),
-            &m_tcpServer, SLOT(on_modbusStatusChanged(quint16)), Qt::DirectConnection);
-
     // hang in here
-    mp_coreApp->exec();
+    coreApp.exec();
 }
 
 /*!
@@ -54,7 +60,7 @@ CBcMain::CBcMain(QCoreApplication& coreApp, QObject *parent) : QObject(parent)
  */
 CBcMain::~CBcMain()
 {
-    if (mp_serialThread)
+    if (mp_lcSerialThread)
     {
         //mp_serialThread->exit(0);
         //delete mp_serialThread;
@@ -62,19 +68,31 @@ CBcMain::~CBcMain()
     }
 }
 
+void CBcMain::readSettings()
+{
+    // parse parameters
+    // logger section
+    mp_settings->beginGroup("logger");
+    m_logPath = mp_settings->value("path").toString();
+    quint32 temp = mp_settings->value("level").value<quint32>();
+    m_ll = (MLL::ELogLevel)temp;
+    m_verbose = mp_settings->value("verbose").value<bool>();
+    mp_settings->endGroup();
+
+    // serial ports
+    mp_settings->beginGroup("serial");
+    m_noOfPings = mp_settings->value("scansnr").value<quint32>();
+    m_noOfLcSlaves = mp_settings->value("lcnr").value<quint32>();
+    m_lcSerialName = mp_settings->value("lcserial").value<QString>();
+    mp_settings->endGroup();
+}
+
 /*!
- * \brief Check the \ref coreApp parameters and sets appropriate flags and strings.
- * \param coreApp: Refference to a \ref QCoreApplication variable containing parameters.
- * \param verbose: Refference under which verbose flag will be saved.
- * \param logPath: Refference under which logs directory path will be saved.
- * \param logLevel: Refference under which the log level for the logger will be saved.
- * \return 0 if all ok.
+ * \brief CBcMain::getOrCteareSettings
+ * \param coreApp
+ * \return
  */
-int CBcMain::getParameters(QCoreApplication& coreApp,
-                           bool& verbose,
-                           QString& logPath,
-                           MLL::ELogLevel& logLevel,
-                           QString& serial)
+int CBcMain::getOrCteareSettings(QCoreApplication& coreApp)
 {
     int retVal = 0;
 
@@ -82,56 +100,47 @@ int CBcMain::getParameters(QCoreApplication& coreApp,
     coreApp.setApplicationName(APP_NAME);
     coreApp.setApplicationVersion(APP_VER);
 
-    // initialize parser
-    QCommandLineParser parser;
-    parser.setApplicationDescription(APP_DESC);
-    parser.addHelpOption();
-    parser.addVersionOption();
+    // set application path
+    m_settingsPath = QCoreApplication::applicationDirPath() + "/core_settings.ini";
+    mp_settings = new QSettings(m_settingsPath, QSettings::IniFormat);
 
-    // add options
-    QCommandLineOption verboseOpt(QStringList() << "c" << "console",
-            QCoreApplication::translate("main", "Print logs to console."));
-    if (!parser.addOption(verboseOpt))
-        retVal++;
+    // check if file exists
+    QFileInfo check_file(m_settingsPath);
+    if (!(check_file.exists() && check_file.isFile()))
+    {
+        // it does not, create it
+        // logger
+        mp_settings->beginGroup("logger");
+        mp_settings->setValue("path", "/tmp"); // default logs path
+        mp_settings->setValue("level", (quint32)MLL::LDebug); // default logging level
+        mp_settings->setValue("verbose", 1); // default verbose flag ON
+        mp_settings->endGroup();
 
-    QCommandLineOption pathOpt(QStringList() << "p" << "path",
-            QCoreApplication::translate("main", "Path to the location in which logs will be saved."),
-            QCoreApplication::translate("main", "location"));
-    if (!parser.addOption(pathOpt))
-        retVal++;
+        // serial ports
+        mp_settings->beginGroup("serial");
+        mp_settings->setValue("scansnr", 3); // default number of scans for presence
+        mp_settings->setValue("lcserial", "none"); // no line controllers serial provided
+        mp_settings->setValue("lcnr", 64); // default line controller slaves
+        mp_settings->setValue("batserial", "none"); // no batteries serial provided
+        mp_settings->setValue("batnr", 6); // default batteries controller slaves
+        mp_settings->endGroup();
+    }
 
-    QCommandLineOption serialOpt(QStringList() << "s" << "serial",
-            QCoreApplication::translate("main", "Serial port device name, eg. ttyAMA0."),
-            QCoreApplication::translate("main", "device"));
-    if (!parser.addOption(serialOpt))
-        retVal++;
+    //read the settings
+    readSettings();
 
-    QCommandLineOption logLevelOpt(QStringList() << "l" << "level",
-            QCoreApplication::translate("main", "Sets the logging level (0-4)."),
-            QCoreApplication::translate("main", "level"));
-   if (!parser.addOption(logLevelOpt))
-       retVal++;
-
-    // process the parameters
-    parser.process(coreApp);
-
-    // collect parameters
-    verbose = parser.isSet(verboseOpt);
-    logPath = parser.value(pathOpt);
-    serial = parser.value(serialOpt);
-    logLevel = (MLL::ELogLevel)(parser.value(logLevelOpt).toInt());
-
-    // trim log level
-    if (logLevel > MLL::LDebug)
-        logLevel = MLL::LDebug;
-
-    // check if path is proper
-    if ("" == logPath)
-        logPath = QDir::tempPath();
-
-    // check if serial port device was set
-    if (!parser.isSet("serial"))
+    // check serial
+    if ("none" == m_lcSerialName)
         retVal = -1;
 
     return retVal;
 }
+
+
+
+
+
+
+
+
+
