@@ -16,6 +16,7 @@ CBcSerialThread::CBcSerialThread(const QString& port,
     m_curScanDev = 0;
     m_pingsForPresence = noOfPings;
     m_noOfDev2Scan = noOfDevices;
+    m_slaves.clear();
 
     // set serial parameters
     mp_modbusMaster->setPortName(port);
@@ -92,7 +93,6 @@ void CBcSerialThread::on_responseReady_ReadHoldingRegisters(const quint8 slaveId
 {
     // turn off response timer
     mp_respToutTimer->stop();
-
     CBcLogger::instance()->print(MLL::ELogLevel::LInfo,
                                  "Read holding registers response. SID:%u, SADDR:%u, NOOFREGS:%u",
                                  slaveId, startAddr, registers.size());
@@ -103,16 +103,12 @@ void CBcSerialThread::on_responseReady_ReadHoldingRegisters(const quint8 slaveId
         case EAddrCodes::Ping:
         {
             // manage
-            quint32 index = slaveId - 1;
-
-            // make setters and getters for pings and presence TODO
-
-
+            m_slaves[slaveId - 1]->managePresence(true);
             mp_pollTimer->start();
             break;
         }
 
-        default:
+        default: // TODO obslugiwac to zawsze i w ovveridzie handlowac presence RC, wysylac sygnaly
         {
             responseReady_ReadHoldingRegistersOverride(slaveId, startAddr, registers);
         }
@@ -153,7 +149,7 @@ void CBcSerialThread::on_pollTimeout()
     int retVal = 0;
 
     // check slave overflow, scan one slave at a time
-    if (m_curScanDev > m_noOfDev2Scan)
+    if (m_curScanDev >= m_noOfDev2Scan)
         m_curScanDev = 1;
     else
         m_curScanDev++;
@@ -185,6 +181,9 @@ void CBcSerialThread::on_respTimeout()
             // proper slave
             if (m_curScanDev == mp_modbusMaster->txFrame().slaveAddr)
             {
+                // manage
+                m_slaves[mp_modbusMaster->txFrame().slaveAddr - 1]->managePresence(false);
+
                 // all ok just start
                 mp_pollTimer->start();
             }

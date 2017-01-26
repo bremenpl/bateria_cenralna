@@ -26,6 +26,9 @@ CBcMain::CBcMain(QCoreApplication& coreApp, QObject *parent) : QObject(parent)
     // start the logger
     CBcLogger::instance()->startLogger(m_logPath, m_verbose, m_ll);
 
+    // start TCP server
+    m_tcpServer.startServer();
+
     // start modbus rtu master only if the serial port is valid
     if (m_serialsValid)
     {
@@ -36,8 +39,8 @@ CBcMain::CBcMain(QCoreApplication& coreApp, QObject *parent) : QObject(parent)
             mp_lcSerialThread->start(QThread::HighPriority);
 
             // connect status change signal
-            connect(mp_lcSerialThread, SIGNAL(statusChanged(quint16)),
-                    &m_tcpServer, SLOT(on_modbusStatusChanged(quint16)), Qt::DirectConnection);
+            //connect(mp_lcSerialThread, SIGNAL(statusChanged(quint16)),
+                    //&m_tcpServer, SLOT(on_modbusStatusChanged(quint16)), Qt::DirectConnection);
         }
         catch (int retVal)
         {
@@ -47,9 +50,6 @@ CBcMain::CBcMain(QCoreApplication& coreApp, QObject *parent) : QObject(parent)
     }
     else
         CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "No serial port for LC provided");
-
-    // start TCP server
-    m_tcpServer.startServer();
 
     // hang in here
     coreApp.exec();
@@ -111,7 +111,9 @@ int CBcMain::getOrCteareSettings(QCoreApplication& coreApp)
         // it does not, create it
         // logger
         mp_settings->beginGroup("logger");
-        mp_settings->setValue("path", "/tmp"); // default logs path
+
+        QString tempPath = QDir::tempPath();
+        mp_settings->setValue("path", tempPath); // default logs path
         mp_settings->setValue("level", (quint32)MLL::LDebug); // default logging level
         mp_settings->setValue("verbose", 1); // default verbose flag ON
         mp_settings->endGroup();

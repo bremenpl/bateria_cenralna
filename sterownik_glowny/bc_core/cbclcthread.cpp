@@ -7,7 +7,7 @@ CBcLcThread::CBcLcThread(const QString& port,
 {
     // create the vector of slaves
     for (quint32 i = 0; i < noOfDevices; i++)
-        m_slaves.append(new CBcLc());
+        m_slaves.append(new CBcLc(i + 1, noOfPings, this));
 }
 
 CBcLcThread::~CBcLcThread()

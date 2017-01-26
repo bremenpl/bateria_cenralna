@@ -7,7 +7,10 @@ class CBcSlaveDevice : public QObject
 {
     Q_OBJECT
 public:
-    explicit CBcSlaveDevice(QObject *parent = 0);
+    explicit CBcSlaveDevice(const quint16 slaveAddr, const quint32 pingsMax, QObject *parent = 0);
+
+    bool managePresence(const bool response);
+    bool presence() { return m_presence; }
 
 signals:
 
@@ -17,8 +20,11 @@ private:
 
 protected:
     // members
-    quint32     pings;
-    bool        presence;
+    quint16     m_slaveAddr;
+    quint32     m_pingsMax;
+    quint32     m_pings;
+    bool        m_presence;
+    bool        m_presenceOld;
 };
 
 #endif // CBCSLAVEDEVICE_H

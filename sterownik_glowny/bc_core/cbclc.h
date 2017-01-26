@@ -9,7 +9,7 @@ class CBcLc : public CBcSlaveDevice
 {
     Q_OBJECT
 public:
-    explicit CBcLc(QObject *parent = 0);
+    explicit CBcLc(const quint16 slaveAddr, const quint32 pingsMax, QObject *parent = 0);
 
 signals:
 

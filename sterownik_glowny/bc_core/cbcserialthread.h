@@ -58,7 +58,7 @@ private:
     quint32         m_curScanDev;           /*!< currently scanned device */
 
 protected:
-    QVector<CBcSlaveDevice*> m_slaves;      /*!< "list" of slave devices */
+    QVector<CBcSlaveDevice*> m_slaves;      /*!< "list" of line controllers slave devices */
 
 private slots:
     void on_pollTimeout();
