@@ -19,3 +19,6 @@ public slots:
 };
 
 #endif // CBCLC_H
+
+
+

@@ -34,7 +34,7 @@ CBcMain::CBcMain(QCoreApplication& coreApp, QObject *parent) : QObject(parent)
     {
         try
         {
-            mp_lcSerialThread = new CBcLcThread(m_lcSerialName, m_noOfPings, m_noOfLcSlaves);
+            mp_lcSerialThread = new CBcLcThread(m_lcSerialName, m_noOfPings, m_noOfLcSlaves, &m_tcpServer);
             mp_lcSerialThread->moveToThread(mp_lcSerialThread);
             mp_lcSerialThread->start(QThread::HighPriority);
 

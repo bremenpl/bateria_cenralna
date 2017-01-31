@@ -18,6 +18,7 @@ public:
 signals:
     void error(QTcpSocket::SocketError socketerror);
     void clientConnected(QTcpSocket* socket);
+    void clientDisconnected(QTcpSocket* socket);
 
 public slots:
     void readyRead();

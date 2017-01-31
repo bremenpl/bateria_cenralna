@@ -8,6 +8,13 @@ CBcSlaveDevice::CBcSlaveDevice(const quint16 slaveAddr, const quint32 pingsMax, 
     m_presenceOld = false;
     m_pingsMax = pingsMax;
     m_slaveAddr = slaveAddr;
+
+    // cast the parent
+    CBcTcpServer* server = dynamic_cast<CBcTcpServer*>(parent);
+
+    // connect
+      connect(this, SIGNAL(sendDataAck(const tcpFrame&)),
+              server, SLOT(on_sendDataAck(const tcpFrame&)), Qt::UniqueConnection);
 }
 
 /*!
@@ -27,6 +34,15 @@ bool CBcSlaveDevice::managePresence(const bool response)
                 m_pings++;
                 m_presence = true;
                 CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "Slave 0x%02X present", m_slaveAddr);
+
+                tcpFrame frame;
+                frame.dType = devType::Lc;
+                frame.slaveAddr = m_slaveAddr;
+                frame.req = tcpReq::get;
+                frame.cmd = tcpCmd::presenceChanged;
+                frame.data.append(1);
+
+                emit sendDataAck(frame);
             }
         }
         else // not present yet
@@ -45,6 +61,16 @@ bool CBcSlaveDevice::managePresence(const bool response)
                 m_pings--;
                 m_presence = false;
                 CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "Slave 0x%02X absent", m_slaveAddr);
+
+                tcpFrame frame;
+                frame.dType = devType::Lc;
+                frame.slaveAddr = m_slaveAddr;
+                frame.req = tcpReq::get;
+                frame.cmd = tcpCmd::presenceChanged;
+                quint8 temp = 0;
+                frame.data.append(temp);
+
+                emit sendDataAck(frame);
             }
         }
         else // loosing it

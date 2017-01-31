@@ -54,6 +54,8 @@ void CBcClientThread::readyRead()
 void CBcClientThread::disconnected()
 {
     CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "Socket 0x%X disconnected", m_socketDescriptor);
+
+    emit clientDisconnected(mp_socket);
     mp_socket->deleteLater();
     exit(0);
 }

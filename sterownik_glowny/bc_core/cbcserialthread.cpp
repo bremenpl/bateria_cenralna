@@ -9,7 +9,7 @@
 CBcSerialThread::CBcSerialThread(const QString& port,
                                  const quint32 noOfPings,
                                  const quint32 noOfDevices,
-                                 QObject *parent) : QThread(parent)
+                                 QObject *parent) : QThread(NULL)
 {
     // create modbus master
     mp_modbusMaster =  new Csmrm(this);
@@ -108,11 +108,14 @@ void CBcSerialThread::on_responseReady_ReadHoldingRegisters(const quint8 slaveId
             break;
         }
 
-        default: // TODO obslugiwac to zawsze i w ovveridzie handlowac presence RC, wysylac sygnaly
+        default:
         {
-            responseReady_ReadHoldingRegistersOverride(slaveId, startAddr, registers);
+
         }
     }
+
+    // slave device related command. Different for LC and different for BAT.
+    responseReady_ReadHoldingRegistersOverride(slaveId, startAddr, registers);
 }
 
 /*!

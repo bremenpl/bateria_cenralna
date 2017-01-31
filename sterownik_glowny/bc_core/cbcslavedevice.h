@@ -3,6 +3,8 @@
 
 #include <QObject>
 
+#include "cbctcpserver.h"
+
 class CBcSlaveDevice : public QObject
 {
     Q_OBJECT
@@ -13,6 +15,7 @@ public:
     bool presence() { return m_presence; }
 
 signals:
+    void sendDataAck(const tcpFrame& frame);
 
 public slots:
 

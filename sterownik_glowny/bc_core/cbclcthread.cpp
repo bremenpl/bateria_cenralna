@@ -7,7 +7,7 @@ CBcLcThread::CBcLcThread(const QString& port,
 {
     // create the vector of slaves
     for (quint32 i = 0; i < noOfDevices; i++)
-        m_slaves.append(new CBcLc(i + 1, noOfPings, this));
+        m_slaves.append(new CBcLc(i + 1, noOfPings, parent));
 }
 
 CBcLcThread::~CBcLcThread()
@@ -19,7 +19,8 @@ void CBcLcThread::responseReady_ReadHoldingRegistersOverride(const quint8 slaveI
                                                          const quint16 startAddr,
                                                          const QVector<quint16>& registers)
 {
-    CBcLogger::instance()->print(MLL::ELogLevel::LInfo,
+    // TODO add presence setting for RC
+    /*CBcLogger::instance()->print(MLL::ELogLevel::LInfo,
                                  "Read holding registers response (LC). SID:%u, SADDR:%u, NOOFREGS:%u",
-                                 slaveId, startAddr, registers.size());
+                                 slaveId, startAddr, registers.size());*/
 }
