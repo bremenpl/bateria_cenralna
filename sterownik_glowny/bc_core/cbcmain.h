@@ -42,6 +42,7 @@ private:
     QString             m_lcSerialName;     /*!< ModBus RTU master serial device name */
     CBcLcThread*        mp_lcSerialThread;  /*!< Serial thread used for handling line controllers modbus */
     quint32             m_noOfLcSlaves;     /*!< Amount of line controllers to scan */
+    quint32             m_noOfRcPerLc;      /*!< Amount of relay controllers per line controller */
 
     QString             m_settingsPath;     /*!< path to the settings file  */
     QSettings*          mp_settings;        /*!< Settings object */

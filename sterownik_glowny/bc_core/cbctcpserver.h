@@ -10,8 +10,10 @@
 
 enum class devType
 {
-    Lc = 0,
-    Bat = 1,
+    None    = 0,
+    Lc      = 1,
+    Bat     = 2,
+    Rc      = 3,
 };
 
 enum class tcpCmd

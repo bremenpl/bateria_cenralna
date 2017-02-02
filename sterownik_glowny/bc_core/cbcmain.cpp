@@ -34,7 +34,8 @@ CBcMain::CBcMain(QCoreApplication& coreApp, QObject *parent) : QObject(parent)
     {
         try
         {
-            mp_lcSerialThread = new CBcLcThread(m_lcSerialName, m_noOfPings, m_noOfLcSlaves, &m_tcpServer);
+            mp_lcSerialThread = new CBcLcThread(
+                        m_lcSerialName, m_noOfPings, m_noOfLcSlaves, m_noOfRcPerLc, &m_tcpServer);
             mp_lcSerialThread->moveToThread(mp_lcSerialThread);
             mp_lcSerialThread->start(QThread::HighPriority);
 
@@ -84,6 +85,7 @@ void CBcMain::readSettings()
     m_noOfPings = mp_settings->value("scansnr").value<quint32>();
     m_noOfLcSlaves = mp_settings->value("lcnr").value<quint32>();
     m_lcSerialName = mp_settings->value("lcserial").value<QString>();
+    m_noOfRcPerLc = mp_settings->value("rcnr").value<quint32>();
     mp_settings->endGroup();
 }
 
@@ -125,6 +127,7 @@ int CBcMain::getOrCteareSettings(QCoreApplication& coreApp)
         mp_settings->setValue("lcnr", 64); // default line controller slaves
         mp_settings->setValue("batserial", "none"); // no batteries serial provided
         mp_settings->setValue("batnr", 6); // default batteries controller slaves
+        mp_settings->setValue("rcnr", 20); // default relay controller slaves
         mp_settings->endGroup();
     }
 

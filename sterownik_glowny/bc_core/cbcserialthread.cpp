@@ -11,6 +11,8 @@ CBcSerialThread::CBcSerialThread(const QString& port,
                                  const quint32 noOfDevices,
                                  QObject *parent) : QThread(NULL)
 {
+    (void)parent;
+
     // create modbus master
     mp_modbusMaster =  new Csmrm(this);
     m_curScanDev = 0;

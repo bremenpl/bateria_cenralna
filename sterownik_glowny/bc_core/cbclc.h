@@ -2,8 +2,8 @@
 #define CBCLC_H
 
 #include <QObject>
-
 #include "cbcslavedevice.h"
+#include "cbcrc.h"
 
 class CBcLc : public CBcSlaveDevice
 {

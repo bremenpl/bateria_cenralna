@@ -13,6 +13,7 @@ public:
     explicit CBcLcThread(const QString& port,
                          const quint32 noOfPings,
                          const quint32 noOfDevices,
+                         const quint32 noOfRcPerLc,
                          QObject *parent = 0);
     ~CBcLcThread();
 

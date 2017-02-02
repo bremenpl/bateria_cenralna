@@ -9,6 +9,9 @@ CBcSlaveDevice::CBcSlaveDevice(const quint16 slaveAddr, const quint32 pingsMax, 
     m_pingsMax = pingsMax;
     m_slaveAddr = slaveAddr;
 
+    // initialy no device
+    m_devType = devType::None;
+
     // cast the parent
     CBcTcpServer* server = dynamic_cast<CBcTcpServer*>(parent);
 
@@ -36,7 +39,7 @@ bool CBcSlaveDevice::managePresence(const bool response)
                 CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "Slave 0x%02X present", m_slaveAddr);
 
                 tcpFrame frame;
-                frame.dType = devType::Lc;
+                frame.dType = m_devType;
                 frame.slaveAddr = m_slaveAddr;
                 frame.req = tcpReq::get;
                 frame.cmd = tcpCmd::presenceChanged;
@@ -63,7 +66,7 @@ bool CBcSlaveDevice::managePresence(const bool response)
                 CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "Slave 0x%02X absent", m_slaveAddr);
 
                 tcpFrame frame;
-                frame.dType = devType::Lc;
+                frame.dType = m_devType;
                 frame.slaveAddr = m_slaveAddr;
                 frame.req = tcpReq::get;
                 frame.cmd = tcpCmd::presenceChanged;
@@ -91,4 +94,21 @@ bool CBcSlaveDevice::managePresence(const bool response)
 
 
     return presenceChanged;
+}
+
+void CBcSlaveDevice::precenceSet(const bool val)
+{
+    if (val != m_presence)
+    {
+        tcpFrame frame;
+        frame.dType = m_devType;
+        frame.slaveAddr = m_slaveAddr;
+        frame.req = tcpReq::get;
+        frame.cmd = tcpCmd::presenceChanged;
+        frame.data.append(quint8(val)); // TODO jak wysylac poziom zaglebienia?
+
+        emit sendDataAck(frame);
+    }
+
+    m_presence = val;
 }
