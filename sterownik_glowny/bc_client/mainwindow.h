@@ -24,9 +24,6 @@
 
 #include "types.h"
 
-#define HOST_IP     "10.10.10.1"
-#define HOST_PORT   12345
-
 namespace Ui {
 class MainWindow;
 }
@@ -71,6 +68,8 @@ private:
     int             m_curLineCtrler;
 
     QTcpSocket*     mp_tcpSocket;
+    QString         m_ip;
+    int             m_port;
 };
 
 #endif // MAINWINDOW_H

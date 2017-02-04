@@ -4,16 +4,27 @@
 #include <QObject>
 #include "cbctcpserver.h"
 
+struct slaveId
+{
+    quint8      m_slaveAddr;
+    devType     m_slaveType;
+};
+
 class CBcSlaveDevice : public QObject
 {
     Q_OBJECT
 public:
-    explicit CBcSlaveDevice(const quint16 slaveAddr, const quint32 pingsMax, QObject *parent = 0);
+    explicit CBcSlaveDevice(const quint16 slaveAddr,
+                            const quint32 pingsMax,
+                            const QVector<slaveId*>* pv = 0,
+                            QObject* parent = 0);
 
     bool managePresence(const bool response);
     bool presence() { return m_presence; }
     void precenceSet(const bool val);
-    QVector<CBcSlaveDevice*> subSlaves() { return m_subSlaves; }
+    QVector<CBcSlaveDevice*>& subSlaves() { return m_subSlaves; }
+    const QVector<slaveId*>* parentVector() { return &m_pv; }
+    void clearChildPresence();
 
 signals:
     void sendDataAck(const tcpFrame& frame);
@@ -24,14 +35,15 @@ private:
 
 protected:
     // members
-    quint16     m_slaveAddr;
+    slaveId     m_slaveId;
     quint32     m_pingsMax;
     quint32     m_pings;
     bool        m_presence;
     bool        m_presenceOld;
-    devType     m_devType;
 
-    QVector<CBcSlaveDevice*> m_subSlaves;      /*!< subslaves of a slave, ie. rc's of an lc */
+    QVector<CBcSlaveDevice*> m_subSlaves;       /*!< subslaves of a slave, ie. rc's of an lc */
+    QVector<slaveId*> m_pv;                     /*!< parent vector */
+
 };
 
 #endif // CBCSLAVEDEVICE_H

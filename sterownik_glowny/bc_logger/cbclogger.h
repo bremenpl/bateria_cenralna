@@ -9,6 +9,7 @@
 #include <QTextStream>
 #include <QFile>
 
+
 /*
  * @brief   Describes the log level for an item
  */

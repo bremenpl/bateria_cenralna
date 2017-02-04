@@ -1,23 +1,36 @@
 #include "cbcslavedevice.h"
 #include "cbclogger.h"
 
-CBcSlaveDevice::CBcSlaveDevice(const quint16 slaveAddr, const quint32 pingsMax, QObject *parent) : QObject(parent)
+CBcSlaveDevice::CBcSlaveDevice(const quint16 slaveAddr,
+                               const quint32 pingsMax,
+                               const QVector<slaveId*>* pv,
+                               QObject* parent) : QObject(parent)
 {
     m_pings = 0;
     m_presence = false;
     m_presenceOld = false;
     m_pingsMax = pingsMax;
-    m_slaveAddr = slaveAddr;
+    m_slaveId.m_slaveAddr = slaveAddr;
 
     // initialy no device
-    m_devType = devType::None;
+    m_slaveId.m_slaveType = devType::None;
 
     // cast the parent
     CBcTcpServer* server = dynamic_cast<CBcTcpServer*>(parent);
 
     // connect
-      connect(this, SIGNAL(sendDataAck(const tcpFrame&)),
-              server, SLOT(on_sendDataAck(const tcpFrame&)), Qt::UniqueConnection);
+    connect(this, SIGNAL(sendDataAck(const tcpFrame&)),
+            server, SLOT(on_sendDataAck(const tcpFrame&)), Qt::UniqueConnection);
+
+    // append parent vector
+    if (pv)
+    {
+        foreach (auto item, *pv)
+            m_pv.append(item);
+    }
+
+    // append myselfe
+    m_pv.append(&m_slaveId);
 }
 
 /*!
@@ -35,24 +48,16 @@ bool CBcSlaveDevice::managePresence(const bool response)
             if (!m_presence) // present
             {
                 m_pings++;
-                m_presence = true;
-                CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "Slave 0x%02X present", m_slaveAddr);
+                precenceSet(response);
 
-                tcpFrame frame;
-                frame.dType = m_devType;
-                frame.slaveAddr = m_slaveAddr;
-                frame.req = tcpReq::get;
-                frame.cmd = tcpCmd::presenceChanged;
-                frame.data.append(1);
-
-                emit sendDataAck(frame);
+                CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "Slave 0x%02X present", m_slaveId.m_slaveAddr);
             }
         }
         else // not present yet
         {
             m_pings++;
             CBcLogger::instance()->print(MLL::ELogLevel::LInfo,
-                                         "Slave 0x%02X gaining presence (%u)", m_slaveAddr, m_pings);
+                                         "Slave 0x%02X gaining presence (%u)", m_slaveId.m_slaveAddr, m_pings);
         }
     }
     else
@@ -62,25 +67,19 @@ bool CBcSlaveDevice::managePresence(const bool response)
             if (m_presence) // just lost presence
             {
                 m_pings--;
-                m_presence = false;
-                CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "Slave 0x%02X absent", m_slaveAddr);
+                precenceSet(response);
 
-                tcpFrame frame;
-                frame.dType = m_devType;
-                frame.slaveAddr = m_slaveAddr;
-                frame.req = tcpReq::get;
-                frame.cmd = tcpCmd::presenceChanged;
-                quint8 temp = 0;
-                frame.data.append(temp);
+                // reset child presences
+                clearChildPresence();
 
-                emit sendDataAck(frame);
+                CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "Slave 0x%02X absent", m_slaveId.m_slaveAddr);
             }
         }
         else // loosing it
         {
             m_pings--;
             CBcLogger::instance()->print(MLL::ELogLevel::LInfo,
-                                         "Slave 0x%02X loosing presence (%u)", m_slaveAddr, m_pings);
+                                         "Slave 0x%02X loosing presence (%u)", m_slaveId.m_slaveAddr, m_pings);
         }
     }
 
@@ -92,7 +91,6 @@ bool CBcSlaveDevice::managePresence(const bool response)
     // update old presence
     m_presenceOld = m_presence;
 
-
     return presenceChanged;
 }
 
@@ -101,14 +99,47 @@ void CBcSlaveDevice::precenceSet(const bool val)
     if (val != m_presence)
     {
         tcpFrame frame;
-        frame.dType = m_devType;
-        frame.slaveAddr = m_slaveAddr;
+        frame.dType = m_slaveId.m_slaveType;
+        frame.slaveAddr = m_slaveId.m_slaveAddr;
         frame.req = tcpReq::get;
         frame.cmd = tcpCmd::presenceChanged;
-        frame.data.append(quint8(val)); // TODO jak wysylac poziom zaglebienia?
+        frame.data.append(quint8(val));
+
+        // append parent vector
+        foreach (slaveId* item, m_pv)
+        {
+            frame.data.append(item->m_slaveAddr);
+            frame.data.append((quint8)item->m_slaveType);
+        }
 
         emit sendDataAck(frame);
+        m_presence = val;
     }
-
-    m_presence = val;
 }
+
+/*!
+ * \brief CBcSlaveDevice::clearChildPresence: A slave shall clear its presense and also
+ * clear the presence of its each subslave. That each subslave will also clear its presence
+ * and the precense of its subslaves and so on.
+ */
+void CBcSlaveDevice::clearChildPresence()
+{
+    m_presence = false;
+
+    if (m_subSlaves.size())
+        foreach (CBcSlaveDevice* slave, m_subSlaves)
+            slave->clearChildPresence();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

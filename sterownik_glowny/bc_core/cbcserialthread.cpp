@@ -227,7 +227,7 @@ void CBcSerialThread::run()
 
     // set and start poll timer
     mp_pollTimer->setSingleShot(true);
-    mp_pollTimer->setInterval(10);
+    mp_pollTimer->setInterval(200);
     mp_pollTimer->start();
 
     exec();

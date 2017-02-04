@@ -8,6 +8,7 @@
 #include <QByteArray>
 
 #define MAX_QUAN_OF_REGS            126
+#define MAX_QUAN_OF_COILS           2000
 
 class Csmrm : public QSerialPort
 {
@@ -57,11 +58,22 @@ public:
 
     explicit Csmrm(QObject *parent = 0);
     ~Csmrm();
+
     qint32 sendRequest_ReadHoldingRegisters(const quint8 slaveId, const quint16 startAddr, const quint16 nrOfRegs);
+    qint32 sendRequest_ReadCoils(const quint8 slaveId, const quint16 startAddr, const quint16 nrOfCoils);
+
+    const SModBusFrame& txFrame(){ return m_txFrame; }
 
 signals:
-    void responseReady_ReadHoldingRegisters(const quint8 slaveId, const QVector<quint16>& registers);
-    void responeReady_ExceptionCode(const quint8 slaveId, EExceptionCodes code);
+    void responseReady_ReadHoldingRegisters(const quint8 slaveId,
+                                            const quint16 startAddr,
+                                            const QVector<quint16>& registers);
+
+    void responseReady_ReadCoils(const quint8 slaveId,
+                                 const quint16 startAddr,
+                                 const QVector<bool>& coils);
+
+    void responseReady_ExceptionCode(const quint8 slaveId, EExceptionCodes code);
 
 private:
     quint16 calculateCRC(const char *data, qint32 len);
@@ -78,6 +90,10 @@ private:
     SModBusFrame*   mp_rxFrame;
     QByteArray      m_rxRawBytes;
     quint32         m_crcState;
+
+    // response parsing help parameters
+    quint16         m_regStartAddr;
+    SModBusFrame    m_txFrame;
 
 private slots:
     void on_readyRead();

@@ -136,7 +136,7 @@ qint32 Csmrm::digForResponse(const QByteArray& buf)
                             m_rxRawBytes.append(byte);
 
                             // check when to move to crc phase
-                            if ((m_currentIndex - 3) > (quint32)mp_rxFrame->data[0])
+                            if ((m_currentIndex - 2) > (quint32)mp_rxFrame->data[0])
                                 m_rxState = EResponseState::Crc;
                         }
                         break;
@@ -223,7 +223,7 @@ void Csmrm::parseResponse(SModBusFrame* frame)
                 hregs.append(reg);
             }
 
-            emit responseReady_ReadHoldingRegisters(frame->slaveAddr, hregs);
+            emit responseReady_ReadHoldingRegisters(frame->slaveAddr, m_regStartAddr, hregs);
             break;
         }
 
@@ -279,28 +279,64 @@ qint32 Csmrm::sendRequest_ReadHoldingRegisters(const quint8 slaveId, const quint
     if ((nrOfRegs < 1) || (nrOfRegs > MAX_QUAN_OF_REGS))
         return -1;
 
-    // create the frame
-    SModBusFrame txFrame;
-
     // assign slave id
-    txFrame.slaveAddr = slaveId;
+    m_txFrame.slaveAddr = slaveId;
 
     // function code
-    txFrame.functionCode = EFuncCodes::ReadHoldingRegisters;
+    m_txFrame.functionCode = EFuncCodes::ReadHoldingRegisters;
 
     // data, starting address HI and LO
-    txFrame.data.append((quint8)(startAddr >> 8));
-    txFrame.data.append((quint8)startAddr);
+    m_txFrame.data.clear();
+    m_txFrame.data.append((quint8)(startAddr >> 8));
+    m_txFrame.data.append((quint8)startAddr);
+    // save the start addr for response parsing
+    m_regStartAddr = startAddr;
 
     // data, no of registers HI and LO
-    txFrame.data.append((quint8)(nrOfRegs >> 8)); // this is retarded, since max amount of registers is 125...
-    txFrame.data.append((quint8)nrOfRegs);
+    m_txFrame.data.append((quint8)(nrOfRegs >> 8)); // this is retarded, since max amount of registers is 125...
+    m_txFrame.data.append((quint8)nrOfRegs);
 
     // calculate CRC
-    addCrc2Frame(txFrame);
+    addCrc2Frame(m_txFrame);
 
     // send the frame
-    return sendFrame(txFrame);
+    return sendFrame(m_txFrame);
+}
+
+/*!
+ * \brief Csmrm::sendRequest_ReadCoils Sends read coils request to specified slave
+ * \param slaveId: Modbus slave id (1-247)
+ * \param startAddr: read registers start address
+ * \param nrOfRegs: number of registers to read (1-125)
+ * \return
+ */
+qint32 Csmrm::sendRequest_ReadCoils(const quint8 slaveId, const quint16 startAddr, const quint16 nrOfCoils)
+{
+    // validate quantity of coils to read
+    if ((nrOfCoils < 1) || (nrOfCoils > MAX_QUAN_OF_COILS))
+        return -1;
+
+    // assign slave id
+    m_txFrame.slaveAddr = slaveId;
+
+    // function code
+    m_txFrame.functionCode = EFuncCodes::ReadCoils;
+
+    // data, starting address HI and LO
+    m_txFrame.data.append((quint8)(startAddr >> 8));
+    m_txFrame.data.append((quint8)startAddr);
+    // save the start addr for response parsing
+    m_regStartAddr = startAddr;
+
+    // data, no of coils HI and LO
+    m_txFrame.data.append((quint8)(nrOfCoils >> 8));
+    m_txFrame.data.append((quint8)nrOfCoils);
+
+    // calculate CRC
+    addCrc2Frame(m_txFrame);
+
+    // send the frame
+    return sendFrame(m_txFrame);
 }
 
 
