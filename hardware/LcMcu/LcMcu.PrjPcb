@@ -212,6 +212,10 @@ DocumentUniqueId=
 DocumentPath=Project Outputs for LcMcu\Design Rule Check - LcMcu.html
 DItemRevisionGUID=
 
+[Parameter1]
+Name=ver
+Value=1.0
+
 [Configuration1]
 Name=Sources
 ParameterCount=0
