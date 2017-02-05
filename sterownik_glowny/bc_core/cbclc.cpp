@@ -6,5 +6,5 @@ CBcLc::CBcLc(const quint16 slaveAddr,
              QObject *parent) :
     CBcSlaveDevice(slaveAddr, pingsMax, pv, parent)
 {
-    m_slaveId.m_slaveType = devType::Lc;
+    m_slaveId.m_slaveType = EDeviceTypes::LineCtrler;
 }

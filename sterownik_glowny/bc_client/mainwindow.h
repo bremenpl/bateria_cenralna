@@ -5,6 +5,8 @@
 #include <QTcpSocket>
 #include <QSettings>
 #include <QFileInfo>
+#include <QQueue>
+#include <QVector>
 
 #include "cbclogger.h"
 #include "cabstractmenu.h"
@@ -21,8 +23,11 @@
 #include "cbatdevice.h"
 #include "citemscharmenu.h"
 #include "cchardevice.h"
-
 #include "types.h"
+
+// from core
+#include "cbclc.h"
+#include "cbcrc.h"
 
 namespace Ui {
 class MainWindow;
@@ -54,6 +59,9 @@ private:
     void setDefaultSettings(QSettings* mp_settings);
     void readAllSettings(QSettings* mp_settings);
     CAbstractMenu* currentMenuObject(const int index);
+    void digForTcpFrames(const QByteArray& data);
+    void handleTcpRxFrames();
+    void slavePresent(QVector<slaveId*>& pv);
 
     // members
     Ui::MainWindow *ui;
@@ -70,6 +78,12 @@ private:
     QTcpSocket*     mp_tcpSocket;
     QString         m_ip;
     int             m_port;
+
+    tcpRespState    m_tcpRxState = tcpRespState::devType;
+    tcpFrame*       mp_rxTcpFrame = 0;
+    QQueue<tcpFrame*> m_rxTcpQueue;
+
+    QVector<CBcSlaveDevice*> m_slaves;      /*!< "list" of slave devices */
 };
 
 #endif // MAINWINDOW_H

@@ -49,7 +49,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(mp_tcpSocket, SIGNAL(disconnected()),
             this, SLOT(on_tcpSocketDisconnected()));
     connect(mp_tcpSocket, SIGNAL(readyRead()),
-            this, SLOT(on_tcpSocketReadyRead()));
+            this, SLOT(on_tcpSocketReadyRead()), Qt::QueuedConnection);
 
     CBcLogger::instance()->print(MLL::ELogLevel::LInfo) <<
                                  QString("Trying to connect to host %1:%2...").arg(m_ip).arg(m_port);
@@ -334,6 +334,156 @@ void MainWindow::on_tbMain_currentChanged(int index)
             << currentMenuObject(index)->menuName() << " opened";
 }
 
+void MainWindow::digForTcpFrames(const QByteArray& data)
+{
+    CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "New data from server %i", data.size());
+
+    foreach (quint8 byte, data)
+    {
+        switch (m_tcpRxState)
+        {
+            case tcpRespState::devType:
+            {
+                mp_rxTcpFrame = new tcpFrame;
+                mp_rxTcpFrame->data.clear();
+                mp_rxTcpFrame->dType = (EDeviceTypes)byte;
+                m_tcpRxState = tcpRespState::slaveAddr;
+                break;
+            }
+
+            case tcpRespState::slaveAddr:
+            {
+                mp_rxTcpFrame->slaveAddr = byte;
+                m_tcpRxState = tcpRespState::req;
+                break;
+            }
+
+            case tcpRespState::req:
+            {
+                mp_rxTcpFrame->req = (tcpReq)byte;
+                m_tcpRxState = tcpRespState::cmd;
+                break;
+            }
+
+            case tcpRespState::cmd:
+            {
+                mp_rxTcpFrame->cmd = (tcpCmd)byte;
+                m_tcpRxState = tcpRespState::len;
+                break;
+            }
+
+            case tcpRespState::len:
+            {
+                mp_rxTcpFrame->len = (int)byte;
+                m_tcpRxState = tcpRespState::data;
+                break;
+            }
+
+            case tcpRespState::data:
+            {
+                mp_rxTcpFrame->data.append(byte);
+
+                if (mp_rxTcpFrame->data.size() >= mp_rxTcpFrame->len)
+                {
+                    // frame fully parsed
+                    m_rxTcpQueue.enqueue(mp_rxTcpFrame);
+
+                    // set initial state
+                    mp_rxTcpFrame = 0;
+                    m_tcpRxState = tcpRespState::devType;
+                }
+                break;
+            }
+
+            default:
+            {
+                CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
+                        << "Unhandled tcpRxState: " << (int)m_tcpRxState;
+
+                // initial state
+                m_tcpRxState = tcpRespState::devType;
+
+                if (mp_rxTcpFrame)
+                {
+                    delete mp_rxTcpFrame;
+                    mp_rxTcpFrame = 0;
+                }
+            }
+        }
+    }
+
+    // manage the frames if any new
+    handleTcpRxFrames();
+}
+
+void MainWindow::handleTcpRxFrames()
+{
+    while (m_rxTcpQueue.size())
+    {
+        tcpFrame* frame = m_rxTcpQueue.dequeue();
+
+        switch (frame->cmd)
+        {
+            case tcpCmd::presenceChanged:
+            {
+                bool presence = (bool)frame->data[1];
+                QVector<slaveId*> pv; // parent vector
+                int depthLevel = (frame->len - 1) / 2;
+
+                for (int i = 0; i < depthLevel; i++)
+                {
+                    slaveId* slv =  new slaveId;
+                    slv->m_slaveAddr = frame->data[1 + i * 2];
+                    slv->m_slaveType = (EDeviceTypes)((quint8)frame->data[2 + i * 2]);
+                    pv.append(slv);
+                }
+
+
+                break;
+            }
+
+            default:
+            {
+                CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
+                        << "Unhandled tcp Rx cmd: " << (int)frame->cmd;
+            }
+        }
+
+        // finally delete this frame
+        delete frame;
+    }
+}
+
+void MainWindow::slavePresent(QVector<slaveId*>& pv)
+{
+    // do nothing for empty cector
+    if (!pv.size())
+        return;
+
+    for (int i = 0; i < pv.size(); i++)
+    {
+        if (0 == i) // base level
+        {
+            if (!m_slaves.size()) // no slaves yet, just append it
+            {
+                CBcSlaveDevice* slave = 0;
+
+                switch (pv[i]->m_slaveType)
+                {
+                    case EDeviceTypes::LineCtrler: slave = new CBcLc(pv[i]->m_slaveAddr); break;
+                    default:
+                    {
+                        CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
+                                << "Unhandled slave type: " << (int)pv[i]->m_slaveType;
+                        (void)slave; // TODO dokonczyc to dla slaveow ktore juz sa i nizszych warstw
+                        return;
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 void MainWindow::on_tcpSocketConnected()
 {
@@ -347,7 +497,30 @@ void MainWindow::on_tcpSocketDisconnected()
 
 void MainWindow::on_tcpSocketReadyRead()
 {
-    CBcLogger::instance()->print(MLL::ELogLevel::LInfo) << "New data from server";
+    digForTcpFrames(mp_tcpSocket->readAll());
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

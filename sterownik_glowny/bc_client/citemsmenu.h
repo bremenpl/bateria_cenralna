@@ -2,10 +2,17 @@
 #define CITEMSMENU_H
 
 #include <QDialog>
-#include <QTreeWidget>
-#include <QTreeWidgetItemIterator>
+#include <QStandardItemModel>
+#include <QItemSelection>
 
 #include "cabstractmenu.h"
+
+enum class itemsTableCol
+{
+    slaveAddr       = 0,
+    uniqId          = 1,
+    userStr         = 2
+};
 
 namespace Ui {
 class CItemsMenu;
@@ -19,18 +26,20 @@ public:
     explicit CItemsMenu(QWidget *parent = 0);
     ~CItemsMenu();
 
-    void selectNextItem();
-
 private:
     Ui::CItemsMenu *ui;
+    void addSlave(const quint8 addr, const QString& uniqId, const QString& userString);
+    void selectNextItem(const bool nextItem);
+    int selectedRow();
+    void manageControls();
 
     // members
-    int             m_currentItem;
+    QStringList     m_columnLabels;
 
 protected:
-    QTreeWidget*    mp_tw;
     int             m_noOfItems;
     EDeviceTypes    m_deviceType = EDeviceTypes::Dummy;
+    QStandardItemModel* mp_itemsModel;
 
 signals:
     void signal_deviceSelected(const EDeviceTypes deviceType, const int slaveAddr);
@@ -38,8 +47,9 @@ signals:
 private slots:
     void on_pbItemsUp_clicked();
     void on_pbItemsDown_clicked();
-    void on_twItems_itemClicked(QTreeWidgetItem *item, int column);
     void on_pbItemsEnter_clicked();
+    void on_itemsSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
+
 };
 
 #endif // CITEMSMENU_H

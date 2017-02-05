@@ -2,6 +2,8 @@
 #define CITEMSLCMENU_H
 
 #include <QWidget>
+#include <QString>
+#include <QStringList>
 
 #include "citemsmenu.h"
 

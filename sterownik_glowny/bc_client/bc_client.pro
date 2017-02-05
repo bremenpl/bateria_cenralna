@@ -17,11 +17,17 @@ greaterThan(QT_MAJOR_VERSION, 4)
 target.path = /home/pi/
 INSTALLS += target
 
-INCLUDEPATH += ../bc_logger/
-    keyboard/
+INCLUDEPATH += ../bc_logger/ \
+    keyboard/ \
+    ../bc_core/
 
 SOURCES += main.cpp\
     ../bc_logger/cbclogger.cpp \
+    ../bc_core/cbclc.cpp \
+    ../bc_core/cbcrc.cpp \
+    ../bc_core/cbcslavedevice.cpp \
+    ../bc_core/cbctcpserver.cpp \
+    ../bc_core/cbcclientthread.cpp \
     mainwindow.cpp \
     cdevicedialog.cpp \
     cmainmenu.cpp \
@@ -39,10 +45,15 @@ SOURCES += main.cpp\
     citemsbatmenu.cpp \
     cbatdevice.cpp \
     citemscharmenu.cpp \
-    cchardevice.cpp
+    cchardevice.cpp \
 
 HEADERS  += mainwindow.h \
     ../bc_logger/cbclogger.h \
+    ../bc_core/cbclc.h \
+    ../bc_core/cbcrc.h \
+    ../bc_core/cbcslavedevice.h \
+    ../bc_core/cbctcpserver.h \
+    ../bc_core/cbcclientthread.h \
     cdevicedialog.h \
     cmainmenu.h \
     csettingsmenu.h \
@@ -61,7 +72,7 @@ HEADERS  += mainwindow.h \
     citemsbatmenu.h \
     cbatdevice.h \
     citemscharmenu.h \
-    cchardevice.h
+    cchardevice.h \
 
 FORMS    += mainwindow.ui \
     cdevicedialog.ui \

@@ -2,7 +2,7 @@
 
 CBcTcpServer::CBcTcpServer(QObject *parent) : QTcpServer(parent)
 {
-    qRegisterMetaType<devType>("devType");
+    qRegisterMetaType<EDeviceTypes>("EDeviceTypes");
     qRegisterMetaType<tcpCmd>("tcpCmd");
     qRegisterMetaType<tcpFrame>("tcpFrame");
 }
@@ -44,6 +44,9 @@ void CBcTcpServer::on_clientConnected(QTcpSocket* socket)
 {
     // append new socket to the list
     m_connectedSockets.append(socket);
+
+    // inform the slave devices
+    emit newClientConnected();
 }
 
 void CBcTcpServer::on_clientDisconnected(QTcpSocket* socket)
@@ -70,23 +73,13 @@ void CBcTcpServer::on_sendDataAck(const tcpFrame& frame)
     rb.append(frame.slaveAddr);         // slave address
     rb.append((quint8)frame.req);       // request type
     rb.append((quint8)frame.cmd);       // command
+    rb.append((quint8)frame.len);       // data len
     rb.append(frame.data);              // data
 
     emit sendData2Socket(rb);
 }
 
-void CBcTcpServer::on_modbusStatusChanged(quint16 status)
-{
-    if (m_connectedSockets.length())
-    {
-        QByteArray rb;
-        rb.append((quint8)status);
-        rb.append((quint8)(status >> 8));
 
-        // send broadcast data, maybe change this later
-        emit sendData2Socket(rb);
-    }
-}
 
 
 

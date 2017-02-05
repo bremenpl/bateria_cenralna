@@ -3,12 +3,7 @@
 
 #include <QObject>
 #include "cbctcpserver.h"
-
-struct slaveId
-{
-    quint8      m_slaveAddr;
-    devType     m_slaveType;
-};
+#include "types.h"
 
 class CBcSlaveDevice : public QObject
 {
@@ -22,6 +17,7 @@ public:
     bool managePresence(const bool response);
     bool presence() { return m_presence; }
     void precenceSet(const bool val);
+    void presenceSend();
     QVector<CBcSlaveDevice*>& subSlaves() { return m_subSlaves; }
     const QVector<slaveId*>* parentVector() { return &m_pv; }
     void clearChildPresence();
@@ -30,6 +26,7 @@ signals:
     void sendDataAck(const tcpFrame& frame);
 
 public slots:
+    void on_newClientConnected();
 
 private:
 

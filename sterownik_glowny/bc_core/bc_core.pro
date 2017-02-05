@@ -14,7 +14,8 @@ CONFIG -= app_bundle
 TEMPLATE = app
 
 INCLUDEPATH += ../bc_logger/ \
-               ../smrm/
+               ../smrm/ \
+               ../bc_client/
 
 SOURCES += main.cpp \
     ../bc_logger/cbclogger.cpp \
@@ -39,4 +40,5 @@ HEADERS += \
     cbclcthread.h \
     cbclc.h \
     cbcslavedevice.h \
-    cbcrc.h
+    cbcrc.h \
+    ../bc_client/types.h

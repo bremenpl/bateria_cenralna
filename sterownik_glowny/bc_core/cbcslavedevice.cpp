@@ -13,14 +13,20 @@ CBcSlaveDevice::CBcSlaveDevice(const quint16 slaveAddr,
     m_slaveId.m_slaveAddr = slaveAddr;
 
     // initialy no device
-    m_slaveId.m_slaveType = devType::None;
+    m_slaveId.m_slaveType = EDeviceTypes::Dummy;
 
     // cast the parent
-    CBcTcpServer* server = dynamic_cast<CBcTcpServer*>(parent);
+    if (parent)
+    {
+        CBcTcpServer* server = dynamic_cast<CBcTcpServer*>(parent);
 
-    // connect
-    connect(this, SIGNAL(sendDataAck(const tcpFrame&)),
-            server, SLOT(on_sendDataAck(const tcpFrame&)), Qt::UniqueConnection);
+        // connect
+        connect(this, SIGNAL(sendDataAck(const tcpFrame&)),
+                server, SLOT(on_sendDataAck(const tcpFrame&)), Qt::QueuedConnection);
+
+        connect(server, SIGNAL(newClientConnected()),
+                this, SLOT(on_newClientConnected()), Qt::QueuedConnection);
+    }
 
     // append parent vector
     if (pv)
@@ -98,23 +104,29 @@ void CBcSlaveDevice::precenceSet(const bool val)
 {
     if (val != m_presence)
     {
-        tcpFrame frame;
-        frame.dType = m_slaveId.m_slaveType;
-        frame.slaveAddr = m_slaveId.m_slaveAddr;
-        frame.req = tcpReq::get;
-        frame.cmd = tcpCmd::presenceChanged;
-        frame.data.append(quint8(val));
-
-        // append parent vector
-        foreach (slaveId* item, m_pv)
-        {
-            frame.data.append(item->m_slaveAddr);
-            frame.data.append((quint8)item->m_slaveType);
-        }
-
-        emit sendDataAck(frame);
         m_presence = val;
+        presenceSend();
     }
+}
+
+void CBcSlaveDevice::presenceSend()
+{
+    tcpFrame frame;
+    frame.dType = m_slaveId.m_slaveType;
+    frame.slaveAddr = m_slaveId.m_slaveAddr;
+    frame.req = tcpReq::get;
+    frame.cmd = tcpCmd::presenceChanged;
+    frame.data.append(quint8(m_presence));
+
+    // append parent vector
+    foreach (slaveId* item, m_pv)
+    {
+        frame.data.append(item->m_slaveAddr);
+        frame.data.append((quint8)item->m_slaveType);
+    }
+
+    frame.len = frame.data.size();
+    emit sendDataAck(frame);
 }
 
 /*!
@@ -126,9 +138,19 @@ void CBcSlaveDevice::clearChildPresence()
 {
     m_presence = false;
 
+    // no need to send absence of a child, client knows that when father is absent children are as well
+    // presenceSend();
+
     if (m_subSlaves.size())
         foreach (CBcSlaveDevice* slave, m_subSlaves)
             slave->clearChildPresence();
+}
+
+void CBcSlaveDevice::on_newClientConnected()
+{
+    // decide either one should broadcast its presence
+    if (m_presence)
+        presenceSend();
 }
 
 

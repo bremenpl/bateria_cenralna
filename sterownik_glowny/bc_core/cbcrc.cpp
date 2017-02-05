@@ -6,5 +6,5 @@ CBcRc::CBcRc(const quint16 slaveAddr,
              QObject *parent) :
     CBcSlaveDevice(slaveAddr, pingsMax, pv, parent)
 {
-    m_slaveId.m_slaveType = devType::Rc;
+    m_slaveId.m_slaveType = EDeviceTypes::RelayCtrler;
 }
