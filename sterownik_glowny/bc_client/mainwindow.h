@@ -61,7 +61,10 @@ private:
     CAbstractMenu* currentMenuObject(const int index);
     void digForTcpFrames(const QByteArray& data);
     void handleTcpRxFrames();
+
     void slavePresent(QVector<slaveId*>& pv);
+    bool slaveExists(const slaveId* const slv, QVector<CBcSlaveDevice*>& slaveVector);
+    bool appenSlave(const slaveId* const slv, QVector<CBcSlaveDevice*>& slaveVector);
 
     // members
     Ui::MainWindow *ui;

@@ -426,7 +426,7 @@ void MainWindow::handleTcpRxFrames()
         {
             case tcpCmd::presenceChanged:
             {
-                bool presence = (bool)frame->data[1];
+                bool presence = (bool)frame->data[0];
                 QVector<slaveId*> pv; // parent vector
                 int depthLevel = (frame->len - 1) / 2;
 
@@ -438,8 +438,10 @@ void MainWindow::handleTcpRxFrames()
                     pv.append(slv);
                 }
 
+                if (presence)// add to slaves list
+                    slavePresent(pv);
 
-                break;
+                break; // figure out how to remove slaves
             }
 
             default:
@@ -460,28 +462,66 @@ void MainWindow::slavePresent(QVector<slaveId*>& pv)
     if (!pv.size())
         return;
 
+    CBcSlaveDevice* parentSlave = 0;
+    QVector<CBcSlaveDevice*>* slaveVector = &m_slaves;
+
     for (int i = 0; i < pv.size(); i++)
     {
-        if (0 == i) // base level
-        {
-            if (!m_slaves.size()) // no slaves yet, just append it
-            {
-                CBcSlaveDevice* slave = 0;
+        if (parentSlave) // not base level
+            slaveVector = &parentSlave->subSlaves();
 
-                switch (pv[i]->m_slaveType)
-                {
-                    case EDeviceTypes::LineCtrler: slave = new CBcLc(pv[i]->m_slaveAddr); break;
-                    default:
-                    {
-                        CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
-                                << "Unhandled slave type: " << (int)pv[i]->m_slaveType;
-                        (void)slave; // TODO dokonczyc to dla slaveow ktore juz sa i nizszych warstw
-                        return;
-                    }
-                }
-            }
+        if (!slaveVector->size()) // no slaves yet, just append it
+            appenSlave(pv[i], *slaveVector);
+        else // at least one base level slave exists already
+        {
+            // check either the new slave is in the list already
+            if (!slaveExists(pv[i], *slaveVector))
+                appenSlave(pv[i], *slaveVector);
+        }
+
+        // update parent slave
+        parentSlave = m_slaves.last();
+    }
+}
+
+bool MainWindow::slaveExists(const slaveId* const slv, QVector<CBcSlaveDevice*>& slaveVector)
+{
+    Q_ASSERT(slv);
+
+    foreach (CBcSlaveDevice* baseSlave, slaveVector)
+    {
+        if (baseSlave->slave_id().m_slaveAddr == slv->m_slaveAddr) // address match
+            return true;
+    }
+
+    return false;
+}
+
+bool MainWindow::appenSlave(const slaveId* const slv, QVector<CBcSlaveDevice*>& slaveVector)
+{
+    Q_ASSERT(slv);
+    CBcSlaveDevice* slave = 0;
+
+    switch (slv->m_slaveType)
+    {
+        case EDeviceTypes::LineCtrler:  slave = new CBcLc(slv->m_slaveAddr); break;
+        case EDeviceTypes::RelayCtrler: slave = new CBcRc(slv->m_slaveAddr); break;
+        default:
+        {
+            CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
+                    << "Unhandled slave type: " << (int)slv->m_slaveType;
         }
     }
+
+    if (slave) // append the base level slave
+        slaveVector.append(slave);
+    else
+    {
+        CBcLogger::instance()->print(MLL::ELogLevel::LCritical,
+            "Unable to append base lvl slave (ID: %u, TYPE: %i", slv->m_slaveAddr, (int)slv->m_slaveType);
+    }
+
+    return (bool)slave;
 }
 
 
@@ -493,6 +533,9 @@ void MainWindow::on_tcpSocketConnected()
 void MainWindow::on_tcpSocketDisconnected()
 {
     CBcLogger::instance()->print(MLL::ELogLevel::LInfo) << "Disconnected from server";
+
+    // close for now
+    close();
 }
 
 void MainWindow::on_tcpSocketReadyRead()
