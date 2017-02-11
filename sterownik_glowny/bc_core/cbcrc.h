@@ -9,7 +9,7 @@ class CBcRc : public CBcSlaveDevice
     Q_OBJECT
 public:
     explicit CBcRc(const quint16 slaveAddr,
-                   const quint32 pingsMax,
+                   const quint32 pingsMax = 0,
                    const QVector<slaveId*>* pv = 0,
                    QObject *parent = 0);
 

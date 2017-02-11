@@ -370,8 +370,8 @@ void System_ReadUniqueId(uint32_t* buffer)
 	HAL_FLASH_Unlock();
 
 	buffer[0] = (*(__IO uint32_t*) ID_ADDRESS);
-	buffer[1] = (*(__IO uint32_t*) ID_ADDRESS + 4);
-	buffer[2] = (*(__IO uint32_t*) ID_ADDRESS + 8);
+	buffer[1] = (*(__IO uint32_t*) (ID_ADDRESS + 4));
+	buffer[2] = (*(__IO uint32_t*) (ID_ADDRESS + 8));
 
 	HAL_FLASH_Lock();
 }

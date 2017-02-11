@@ -51,8 +51,12 @@ public slots:
     void on_MenuBtnClicked(const EBtnTypes btn);
     void on_DeviceSelected(const EDeviceTypes deviceType, const int slaveAddr);
 
+signals:
+    void slavesChanged(const QVector<CBcSlaveDevice*>& slaves);
+
 private slots:
     void on_tbMain_currentChanged(int index);
+    void on_slavesChanged(const QVector<CBcSlaveDevice*>& slaves);
 
 private:
     bool fileExists(const QString& path);
@@ -63,8 +67,12 @@ private:
     void handleTcpRxFrames();
 
     void slavePresent(QVector<slaveId*>& pv);
-    bool slaveExists(const slaveId* const slv, QVector<CBcSlaveDevice*>& slaveVector);
-    bool appenSlave(const slaveId* const slv, QVector<CBcSlaveDevice*>& slaveVector);
+    void slaveAbsent(QVector<slaveId*>& pv);
+    bool appendSlave(const slaveId* const slv, QVector<CBcSlaveDevice*>& slaveVector);
+    bool removeSlave(const slaveId* const slv, QVector<CBcSlaveDevice*>& slaveVector);
+    QVector<CBcSlaveDevice*>* getSlaveIndex(QVector<slaveId*>& pv, int& index);
+
+    void slaveUniqIdObtained(const quint16* uniqId, QVector<slaveId*>& pv);
 
     // members
     Ui::MainWindow *ui;
@@ -76,7 +84,6 @@ private:
 
     // dialogs (menus)
     CMainMenu*      mp_mainMenu;
-    int             m_curLineCtrler;
 
     QTcpSocket*     mp_tcpSocket;
     QString         m_ip;
@@ -87,6 +94,8 @@ private:
     QQueue<tcpFrame*> m_rxTcpQueue;
 
     QVector<CBcSlaveDevice*> m_slaves;      /*!< "list" of slave devices */
+    slaveId         m_selectedSlave;
+    slaveId         m_selectedSubSlave;     /*!< Maximum of 1 subslave for now */
 };
 
 #endif // MAINWINDOW_H

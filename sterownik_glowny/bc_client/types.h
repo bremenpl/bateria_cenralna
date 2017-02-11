@@ -30,6 +30,7 @@ enum class tcpCmd
 {
     dummy           = 0,
     presenceChanged = 1,
+    takeUniqId      = 2,
 };
 
 enum class tcpReq

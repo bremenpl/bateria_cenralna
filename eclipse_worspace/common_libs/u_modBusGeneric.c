@@ -315,6 +315,22 @@ HAL_StatusTypeDef mbg_EnableReceiver(UART_HandleTypeDef* uHandle,
 }
 
 /*
+ * @brief	Saves 96 bit unique id under \ref id pointer
+ */
+void mbg_getUniqId(uint16_t* id)
+{
+	HAL_FLASH_Unlock();
+
+	for (uint32_t i = 0; i < UNIQ_ID_REGS; i++)
+	{
+		assert_param(id + i);
+		id[i] = (*(__IO uint16_t*)(UNIQ_ID_ADDR + (i * 2)));
+	}
+
+	HAL_FLASH_Lock();
+}
+
+/*
  * @brief	Uart TX complete handle overwrite function for both master and slave modules.
  * 			Depending on which driver is used the proper function has to be
  * 			overwritten in master/ slave module.

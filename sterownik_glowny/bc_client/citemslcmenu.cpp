@@ -8,3 +8,12 @@ CItemsLcMenu::CItemsLcMenu(QWidget *parent) : CItemsMenu(parent)
     // set device type
     m_deviceType = EDeviceTypes::LineCtrler;
 }
+
+void CItemsLcMenu::slavesChangedDevSpecific(const QVector<CBcSlaveDevice*>& slaves)
+{
+    (void)slaves;
+}
+
+
+
+

@@ -18,7 +18,7 @@
 
 #define LC_NO_OF_MODULES		1
 #define LC_NO_OF_RCS			20
-#define LC_NO_OF_PRES_BYTES		((LC_NO_OF_RCS / 8) + 1)
+#define LC_NO_OF_PRES_REGS		((LC_NO_OF_RCS / 8) + 1)
 
 #define LC_PING_PERIOD			60
 #define LC_PING_TIMEOUT			50
@@ -79,10 +79,12 @@ typedef struct
 	mRespPack_t		rcResp;				/*!< Relay controller response buffer (1 item) */
 
 	rc_t			rc[LC_NO_OF_RCS];	/*!< Relay controllers */
-	uint8_t			rcPresBits[LC_NO_OF_PRES_BYTES];
+	uint16_t		rcPresBits[LC_NO_OF_PRES_REGS];
 										/*!< Relay controllers statuses arranged one by
 										 * one so it is esier to read them at once
 										 */
+	uint16_t		uniqId[UNIQ_ID_REGS];
+										/*!< Unique ID register */
 } lc_t;
 
 

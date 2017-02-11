@@ -7,9 +7,10 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     // clear unused pointers and assign zero values
     mp_tcpSocket = NULL;
-    m_curLineCtrler = 0;
     m_youngestTabIndex = -1;
     m_virtKeyboardOn = true;
+    m_selectedSlave.m_slaveType = EDeviceTypes::Dummy;
+    m_selectedSlave.m_slaveAddr = 0;
 
     // setup logger
     CBcLogger::instance()->startLogger("/tmp", true, MLL::ELogLevel::LDebug);
@@ -50,6 +51,8 @@ MainWindow::MainWindow(QWidget *parent) :
             this, SLOT(on_tcpSocketDisconnected()));
     connect(mp_tcpSocket, SIGNAL(readyRead()),
             this, SLOT(on_tcpSocketReadyRead()), Qt::QueuedConnection);
+    connect(this, SIGNAL(slavesChanged(const QVector<CBcSlaveDevice*>&)),
+            this, SLOT(on_slavesChanged(const QVector<CBcSlaveDevice*>&)));
 
     CBcLogger::instance()->print(MLL::ELogLevel::LInfo) <<
                                  QString("Trying to connect to host %1:%2...").arg(m_ip).arg(m_port);
@@ -239,6 +242,8 @@ void MainWindow::on_MenuBtnClicked(const EBtnTypes btn)
         ui->tbMain->addTab(menuPanel, name);
         ui->tbMain->setCurrentIndex((ui->tbMain->indexOf(menuPanel)));
     }
+
+    emit slavesChanged(m_slaves);
 }
 
 /*!
@@ -248,8 +253,6 @@ void MainWindow::on_MenuBtnClicked(const EBtnTypes btn)
  */
 void MainWindow::on_DeviceSelected(const EDeviceTypes deviceType, const int slaveAddr)
 {
-    // save slave addr for later use
-    m_curLineCtrler = slaveAddr;
     QString name;
     CAbstractMenu* menuPanel = 0;
 
@@ -259,6 +262,11 @@ void MainWindow::on_DeviceSelected(const EDeviceTypes deviceType, const int slav
         {
             name = "LC";
             menuPanel = new CPreLcPanel(this);
+
+            m_selectedSlave.m_slaveAddr = slaveAddr;
+            m_selectedSlave.m_slaveType = deviceType;
+            m_selectedSubSlave.m_slaveAddr = 0;
+            m_selectedSubSlave.m_slaveType = EDeviceTypes::Dummy;
             break;
         }
 
@@ -266,6 +274,9 @@ void MainWindow::on_DeviceSelected(const EDeviceTypes deviceType, const int slav
         {
             name = "RC";
             menuPanel = new CRcDevice(this);
+
+            m_selectedSubSlave.m_slaveAddr = slaveAddr;
+            m_selectedSubSlave.m_slaveType = deviceType;
             break;
         }
 
@@ -273,6 +284,11 @@ void MainWindow::on_DeviceSelected(const EDeviceTypes deviceType, const int slav
         {
             name = "BAT";
             menuPanel = new CBatDevice(this);
+
+            m_selectedSlave.m_slaveAddr = slaveAddr;
+            m_selectedSlave.m_slaveType = deviceType;
+            m_selectedSubSlave.m_slaveAddr = 0;
+            m_selectedSubSlave.m_slaveType = EDeviceTypes::Dummy;
             break;
         }
 
@@ -280,6 +296,11 @@ void MainWindow::on_DeviceSelected(const EDeviceTypes deviceType, const int slav
         {
             name = "CHAR";
             menuPanel = new CCharDevice(this);
+
+            m_selectedSlave.m_slaveAddr = slaveAddr;
+            m_selectedSlave.m_slaveType = deviceType;
+            m_selectedSubSlave.m_slaveAddr = 0;
+            m_selectedSubSlave.m_slaveType = EDeviceTypes::Dummy;
             break;
         }
 
@@ -293,9 +314,11 @@ void MainWindow::on_DeviceSelected(const EDeviceTypes deviceType, const int slav
     // add object to tab widget
     if (menuPanel)
     {
-        name += " " + QString::number(m_curLineCtrler);
+        name += " " + QString::number(slaveAddr);
         ui->tbMain->addTab(menuPanel, name);
         ui->tbMain->setCurrentIndex((ui->tbMain->indexOf(menuPanel)));
+
+        emit slavesChanged(m_slaves);
     }
 
     CBcLogger::instance()->print(MLL::ELogLevel::LDebug,
@@ -334,9 +357,53 @@ void MainWindow::on_tbMain_currentChanged(int index)
             << currentMenuObject(index)->menuName() << " opened";
 }
 
+/*!
+ * \brief MainWindow::on_slavesChanged: In this method it is neccesarry to find out
+ * either the last selected slave is on the list. If its not, then menu related to it
+ * has to be closed, as the slave is not present anymore.
+ * \param slaves
+ */
+void MainWindow::on_slavesChanged(const QVector<CBcSlaveDevice*>& slaves)
+{
+    if (EDeviceTypes::Dummy == m_selectedSlave.m_slaveType)
+        return;
+
+    // this is dependent on slave type
+    switch (m_selectedSlave.m_slaveType)
+    {
+        case EDeviceTypes::LineCtrler:
+        {
+            foreach (CBcSlaveDevice* slave, slaves)
+            {
+                if (slave->slave_id().m_slaveAddr == m_selectedSlave.m_slaveAddr)
+                {
+                    if (slave->slave_id().m_slaveType == m_selectedSlave.m_slaveType)
+                        return; // device still there, quit
+                }
+            }
+
+            // device not found, its absent
+            // changing the index to top level device index will destroy further windows
+            m_selectedSlave.m_slaveAddr = 0;
+            m_selectedSlave.m_slaveType = EDeviceTypes::Dummy;
+            m_selectedSubSlave.m_slaveAddr = 0;
+            m_selectedSubSlave.m_slaveType = EDeviceTypes::Dummy;
+            ui->tbMain->setCurrentIndex(2);
+            break;
+        }
+
+        default:
+        {
+            CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
+                << "Unhandled slave changed in on_slavesChanged: "
+                << (int)m_selectedSlave.m_slaveType;
+        }
+    }
+}
+
 void MainWindow::digForTcpFrames(const QByteArray& data)
 {
-    CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "New data from server %i", data.size());
+    CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "New data rcv from server (%i bytes)", data.size());
 
     foreach (quint8 byte, data)
     {
@@ -416,32 +483,57 @@ void MainWindow::digForTcpFrames(const QByteArray& data)
     handleTcpRxFrames();
 }
 
+static QVector<slaveId*> getParentVector(const tcpFrame* const frame, const int depth)
+{
+    QVector<slaveId*> pv;
+
+    for (int i = 0; i < depth; i++)
+    {
+        slaveId* slv =  new slaveId;
+        slv->m_slaveAddr = frame->data[1 + i * 2];
+        slv->m_slaveType = (EDeviceTypes)((quint8)frame->data[2 + i * 2]);
+        pv.append(slv);
+    }
+
+    return pv;
+}
+
 void MainWindow::handleTcpRxFrames()
 {
     while (m_rxTcpQueue.size())
     {
         tcpFrame* frame = m_rxTcpQueue.dequeue();
+        QVector<slaveId*> pv; // parent vector
+        int depthLevel = 0, dataLen = 0;
 
         switch (frame->cmd)
         {
             case tcpCmd::presenceChanged:
             {
                 bool presence = (bool)frame->data[0];
-                QVector<slaveId*> pv; // parent vector
-                int depthLevel = (frame->len - 1) / 2;
+                dataLen = 1;
+                depthLevel = (frame->len - dataLen) / 2;
+                pv.append(getParentVector(frame, depthLevel));
 
-                for (int i = 0; i < depthLevel; i++)
-                {
-                    slaveId* slv =  new slaveId;
-                    slv->m_slaveAddr = frame->data[1 + i * 2];
-                    slv->m_slaveType = (EDeviceTypes)((quint8)frame->data[2 + i * 2]);
-                    pv.append(slv);
-                }
+                if (presence)
+                    slavePresent(pv); // add to slaves list
+                else
+                    slaveAbsent(pv); // remove from slaves list
+                break;
+            }
 
-                if (presence)// add to slaves list
-                    slavePresent(pv);
+            case tcpCmd::takeUniqId:
+            {
+                quint16 uniqId[UNIQ_ID_REGS];
+                for (int i = 0; i < UNIQ_ID_REGS; i++)
+                    uniqId[i] = frame->data[i];
 
-                break; // figure out how to remove slaves
+                dataLen = 12;
+                depthLevel = (frame->len - dataLen) / 2;
+                pv.append(getParentVector(frame, depthLevel));
+
+                slaveUniqIdObtained(uniqId, pv);
+                break;
             }
 
             default:
@@ -451,6 +543,10 @@ void MainWindow::handleTcpRxFrames()
             }
         }
 
+        // inform interested menus about the change
+        if (depthLevel)
+            emit slavesChanged(m_slaves);
+
         // finally delete this frame
         delete frame;
     }
@@ -458,46 +554,23 @@ void MainWindow::handleTcpRxFrames()
 
 void MainWindow::slavePresent(QVector<slaveId*>& pv)
 {
-    // do nothing for empty cector
-    if (!pv.size())
-        return;
+    int index = 0;
+    QVector<CBcSlaveDevice*>* sv = getSlaveIndex(pv, index);
 
-    CBcSlaveDevice* parentSlave = 0;
-    QVector<CBcSlaveDevice*>* slaveVector = &m_slaves;
-
-    for (int i = 0; i < pv.size(); i++)
-    {
-        if (parentSlave) // not base level
-            slaveVector = &parentSlave->subSlaves();
-
-        if (!slaveVector->size()) // no slaves yet, just append it
-            appenSlave(pv[i], *slaveVector);
-        else // at least one base level slave exists already
-        {
-            // check either the new slave is in the list already
-            if (!slaveExists(pv[i], *slaveVector))
-                appenSlave(pv[i], *slaveVector);
-        }
-
-        // update parent slave
-        parentSlave = m_slaves.last();
-    }
+    if (index < 0)
+        appendSlave(pv.last(), *sv);
 }
 
-bool MainWindow::slaveExists(const slaveId* const slv, QVector<CBcSlaveDevice*>& slaveVector)
+void MainWindow::slaveAbsent(QVector<slaveId*>& pv)
 {
-    Q_ASSERT(slv);
+    int index = 0;
+    QVector<CBcSlaveDevice*>* sv = getSlaveIndex(pv, index);
 
-    foreach (CBcSlaveDevice* baseSlave, slaveVector)
-    {
-        if (baseSlave->slave_id().m_slaveAddr == slv->m_slaveAddr) // address match
-            return true;
-    }
-
-    return false;
+    if (index >= 0)
+        removeSlave(&sv->at(index)->slave_id(), *sv);
 }
 
-bool MainWindow::appenSlave(const slaveId* const slv, QVector<CBcSlaveDevice*>& slaveVector)
+bool MainWindow::appendSlave(const slaveId* const slv, QVector<CBcSlaveDevice*>& slaveVector)
 {
     Q_ASSERT(slv);
     CBcSlaveDevice* slave = 0;
@@ -514,7 +587,12 @@ bool MainWindow::appenSlave(const slaveId* const slv, QVector<CBcSlaveDevice*>& 
     }
 
     if (slave) // append the base level slave
+    {
+        CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "SlaveAddr %u Type %i present",
+            slave->slave_id().m_slaveAddr, (int)slave->slave_id().m_slaveType);
+
         slaveVector.append(slave);
+    }
     else
     {
         CBcLogger::instance()->print(MLL::ELogLevel::LCritical,
@@ -522,6 +600,76 @@ bool MainWindow::appenSlave(const slaveId* const slv, QVector<CBcSlaveDevice*>& 
     }
 
     return (bool)slave;
+}
+
+bool MainWindow::removeSlave(const slaveId* const slv, QVector<CBcSlaveDevice*>& slaveVector)
+{
+    Q_ASSERT(slv);
+
+    for (int i = 0; i < slaveVector.size(); i++)
+    {
+        if (slaveVector[i]->slave_id().m_slaveAddr == slv->m_slaveAddr) // address match
+        {
+            CBcLogger::instance()->print(MLL::ELogLevel::LInfo,
+                "SlaveAddr %u Type %i absent", slv->m_slaveAddr, (int)slv->m_slaveType);
+
+            slaveVector.remove(i); // remove from vector and and free memory
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static int findSlaveIndex(const slaveId* const slv, QVector<CBcSlaveDevice*>& slaveVector)
+{
+    Q_ASSERT(slv);
+
+    for (int i = 0; i < slaveVector.size(); i++)
+    {
+        if (slaveVector[i]->slave_id().m_slaveAddr == slv->m_slaveAddr) // address match
+        {
+            if (slaveVector[i]->slave_id().m_slaveType == slv->m_slaveType) // type match
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+QVector<CBcSlaveDevice*>* MainWindow::getSlaveIndex(QVector<slaveId*>& pv, int& index)
+{
+    if (!pv.size())
+    {
+        index = -1;
+        return 0;
+    }
+
+    CBcSlaveDevice* parentSlave = 0;
+    QVector<CBcSlaveDevice*>* slaveVector = &m_slaves;
+
+    for (int i = 0; i < pv.size(); i++)
+    {
+        if (parentSlave) // not base level
+            slaveVector = &parentSlave->subSlaves();
+
+        // update parent slave
+        if (pv.size() > (i + 1))
+            parentSlave = slaveVector->last();
+    }
+
+    // save found values
+    index = findSlaveIndex(pv.last(), *slaveVector);
+    return slaveVector;
+}
+
+void MainWindow::slaveUniqIdObtained(const quint16* uniqId, QVector<slaveId*>& pv)
+{
+    int index = 0;
+    QVector<CBcSlaveDevice*>* sv = getSlaveIndex(pv, index);
+
+    if (index >= 0)
+        sv->at(index)->setUniqId(uniqId);
 }
 
 

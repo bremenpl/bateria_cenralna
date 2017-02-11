@@ -6,11 +6,14 @@ CBcSlaveDevice::CBcSlaveDevice(const quint16 slaveAddr,
                                const QVector<slaveId*>* pv,
                                QObject* parent) : QObject(parent)
 {
+    qRegisterMetaType<QVector<CBcSlaveDevice*>>("QVector<CBcSlaveDevice*>");
+
     m_pings = 0;
     m_presence = false;
     m_presenceOld = false;
     m_pingsMax = pingsMax;
     m_slaveId.m_slaveAddr = slaveAddr;
+    memset(m_uniqId, 0, UNIQ_ID_REGS * 2);
 
     // initialy no device
     m_slaveId.m_slaveType = EDeviceTypes::Dummy;

@@ -58,6 +58,9 @@ HAL_StatusTypeDef lc_Init()
 		// assign addresses of RC, they are needed further in the code
 		for (uint32_t k = 0; k < LC_NO_OF_RCS; k++)
 			lc[i].rc[k].addr = k + 1;
+
+		// get unique ID
+		mbg_getUniqId(lc[i].uniqId);
 	}
 
 	return retVal;
@@ -273,20 +276,39 @@ mbgExCode_t mbs_CheckReadHoldingRegisters(const mbsUart_t* const mbs, mbgFrame_t
 
 	// byte count
 	mf->data[0] = nrOfRegs * 2; // nr of registers * 2 (bytes)
+	// update frame data length member
+	mf->dataLen = mf->data[0] + 1; // 1 for byte count
 
 	switch (startAddr)
 	{
-		case 0: // fixed presence status
+		case e_rcRegMap_Status: // fixed presence status
 		{
 			// check if registers to read are in range
-			if ((startAddr + nrOfRegs) > LC_NO_OF_PRES_BYTES)
+			if ((startAddr + nrOfRegs) > LC_NO_OF_PRES_REGS)
 				return e_mbsExCode_illegalDataAddr;
 
 			// register values
-			for (uint32_t addr = startAddr, i = 1; i < (mf->data[0] + 1); i += 2, addr++)
+			for (uint32_t addr = 0, i = 1; i < (mf->data[0] + 1); i += 2, addr++)
 			{
 				mf->data[i] = (uint8_t)(lc[k].rcPresBits[addr] >> 8); 	// HI
 				mf->data[i + 1] = (uint8_t)lc[k].rcPresBits[addr]; 		// LO
+			}
+
+			retVal = e_mbsExCode_noError;
+			break;
+		}
+
+		case e_rcRegMap_IdFirst:
+		{
+			// check if registers to read are in range
+			if (nrOfRegs > (e_rcRegMap_IdLast - startAddr + 1))
+				return e_mbsExCode_illegalDataAddr;
+
+			// register values
+			for (uint32_t addr = 0, i = 1; i < (mf->data[0] + 1); i += 2, addr++)
+			{
+				mf->data[i] = (uint8_t)(lc[k].uniqId[addr] >> 8); 	// HI
+				mf->data[i + 1] = (uint8_t)lc[k].uniqId[addr]; 		// LO
 			}
 
 			retVal = e_mbsExCode_noError;

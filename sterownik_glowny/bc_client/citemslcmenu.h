@@ -18,6 +18,7 @@ signals:
 public slots:
 
 private:
+    void slavesChangedDevSpecific(const QVector<CBcSlaveDevice*>& slaves);
 
 };
 

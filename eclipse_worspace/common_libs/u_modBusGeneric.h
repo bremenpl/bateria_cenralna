@@ -34,6 +34,9 @@
 #define UART_IT_RTOF                    ((uint16_t)0x0B3A)
 #define UART_CLEAR_RTOCF				USART_ICR_RTOCF
 
+#define UNIQ_ID_REGS					6
+#define UNIQ_ID_ADDR					0x1FFFF7AC
+
 /* Enums and structs ---------------------------------------------------------*/
 
 /*
@@ -145,6 +148,7 @@ void mbg_DisableRxTimeout(UART_HandleTypeDef* uHandle);
 void mbg_ClearRTOCF_Flag(UART_HandleTypeDef* uHandle);
 HAL_StatusTypeDef mbg_EnableReceiver(UART_HandleTypeDef* uHandle,
 		uint8_t* data, const uint16_t len, const uint32_t enableRxTimeout);
+void mbg_getUniqId(uint16_t* id);
 
 // overrides
 void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle);

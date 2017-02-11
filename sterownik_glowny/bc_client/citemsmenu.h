@@ -4,8 +4,10 @@
 #include <QDialog>
 #include <QStandardItemModel>
 #include <QItemSelection>
+#include <QVector>
 
 #include "cabstractmenu.h"
+#include "cbcslavedevice.h"
 
 enum class itemsTableCol
 {
@@ -26,12 +28,15 @@ public:
     explicit CItemsMenu(QWidget *parent = 0);
     ~CItemsMenu();
 
+    QString getUniqIdString(const quint16* const uniqId);
+    void addSlave(const quint8 addr, const QString& uniqId, const QString& userString);
+
 private:
     Ui::CItemsMenu *ui;
-    void addSlave(const quint8 addr, const QString& uniqId, const QString& userString);
     void selectNextItem(const bool nextItem);
     int selectedRow();
     void manageControls();
+    virtual void slavesChangedDevSpecific(const QVector<CBcSlaveDevice*>& slaves);
 
     // members
     QStringList     m_columnLabels;
@@ -42,9 +47,12 @@ protected:
     QStandardItemModel* mp_itemsModel;
 
 signals:
-    void signal_deviceSelected(const EDeviceTypes deviceType, const int slaveAddr);
+    void deviceSelected(const EDeviceTypes deviceType, const int slaveAddr);
+    void getSlaveUniqId(const QVector<slaveId*>& pv); //TODO tu skonczylem
 
 private slots:
+    void on_slavesChanged(const QVector<CBcSlaveDevice*>& slaves);
+
     void on_pbItemsUp_clicked();
     void on_pbItemsDown_clicked();
     void on_pbItemsEnter_clicked();
