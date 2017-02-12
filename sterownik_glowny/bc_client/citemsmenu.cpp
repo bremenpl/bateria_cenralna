@@ -4,6 +4,8 @@
 
 CItemsMenu::CItemsMenu(QWidget *parent) : CAbstractMenu(parent), ui(new Ui::CItemsMenu)
 {
+    qRegisterMetaType<QVector<slaveId*>>("QVector<slaveId*>");
+
     // start values
     m_noOfItems = 0;
     m_columnLabels.clear();
@@ -17,7 +19,7 @@ CItemsMenu::CItemsMenu(QWidget *parent) : CAbstractMenu(parent), ui(new Ui::CIte
     mp_itemsModel = new QStandardItemModel(this);
 
     // add generic labels to the table view
-    m_columnLabels << QObject::tr("Slave address")
+    m_columnLabels << QObject::tr("Address")
                    << QObject::tr("Serial number")
                    << QObject::tr("User string");
     mp_itemsModel->setHorizontalHeaderLabels(m_columnLabels);
@@ -37,12 +39,18 @@ CItemsMenu::CItemsMenu(QWidget *parent) : CAbstractMenu(parent), ui(new Ui::CIte
     connect(mainObj, SIGNAL(slavesChanged(const QVector<CBcSlaveDevice*>&)),
             this, SLOT(on_slavesChanged(const QVector<CBcSlaveDevice*>&)), Qt::QueuedConnection);
 
+    connect(this, SIGNAL(getSlaveUniqId(const QVector<slaveId*>&)),
+            mainObj, SLOT(on_getSlaveUniqId(const QVector<slaveId*>&)), Qt::QueuedConnection);
+
     // resize columns
-    for (int i = 0; i < mp_itemsModel->columnCount(); i++)
-        ui->tvItems->setColumnWidth(i, 200);
+    ui->tvItems->setColumnWidth((int)itemsTableCol::slaveAddr, 100);
+    ui->tvItems->setColumnWidth((int)itemsTableCol::uniqId, 300);
+    ui->tvItems->setColumnWidth((int)itemsTableCol::userStr, 300);
 
     // buttons
     manageControls();
+
+    mp_slaves = mainObj->slaves();
 }
 
 CItemsMenu::~CItemsMenu()
@@ -53,7 +61,7 @@ CItemsMenu::~CItemsMenu()
 QString CItemsMenu::getUniqIdString(const quint16* const uniqId)
 {
     Q_ASSERT(uniqId);
-    QString uniqIdStr = "0x";
+    QString uniqIdStr;
 
     for (int i = UNIQ_ID_REGS - 1; i >= 0; i--)
         uniqIdStr += QString("%1").arg(uniqId[i], 2, 16, QChar('0'));
@@ -152,11 +160,13 @@ void CItemsMenu::selectNextItem(const bool nextItem)
 
 void CItemsMenu::manageControls()
 {
-    bool hasSelection = ui->tvItems->selectionModel()->hasSelection();
+    // enter button
+    ui->pbItemsEnter->setEnabled(ui->tvItems->selectionModel()->hasSelection());
 
-    ui->pbItemsDown->setEnabled(hasSelection);
-    ui->pbItemsUp->setEnabled(hasSelection);
-    ui->pbItemsEnter->setEnabled(hasSelection);
+    // up/down buttons
+    bool itemsInTable = (bool)mp_itemsModel->rowCount();
+    ui->pbItemsDown->setEnabled(itemsInTable);
+    ui->pbItemsUp->setEnabled(itemsInTable);
 }
 
 void CItemsMenu::on_slavesChanged(const QVector<CBcSlaveDevice*>& slaves)
@@ -169,23 +179,11 @@ void CItemsMenu::on_slavesChanged(const QVector<CBcSlaveDevice*>& slaves)
     if (mp_itemsModel->rowCount())
         mp_itemsModel->removeRows(0, mp_itemsModel->rowCount(), QModelIndex());
 
-    // add slaves
-    foreach (CBcSlaveDevice* slave, slaves)
-    {
-        // add slave only if its proper type and is present
-        if (m_deviceType == slave->slave_id().m_slaveType)
-        {
-            addSlave(slave->slave_id().m_slaveAddr,
-                     getUniqIdString(slave->uniqId()),
-                     QStringLiteral("user string"));
-        }
-    }
-
-    // let children decide what to do
+    // let children decide how to add slaves
     slavesChangedDevSpecific(slaves);
 
-    // select 1st item
-    selectNextItem(true);
+    // refresh controlls
+    manageControls();
 }
 
 void CItemsMenu::slavesChangedDevSpecific(const QVector<CBcSlaveDevice*>& slaves)
@@ -193,6 +191,15 @@ void CItemsMenu::slavesChangedDevSpecific(const QVector<CBcSlaveDevice*>& slaves
     (void)slaves;
     CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
             << "slavesChangedDevSpecific run in base class!";
+}
+
+QVector<slaveId*> CItemsMenu::getParentVector(const int row)
+{
+    (void)row;
+    CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
+            << "getParentVector run in base class!";
+
+    return QVector<slaveId*>();
 }
 
 void CItemsMenu::on_pbItemsUp_clicked()
@@ -224,8 +231,18 @@ void CItemsMenu::on_itemsSelectionChanged(const QItemSelection &selected, const 
     (void)selected;
 
     foreach (auto index, ui->tvItems->selectionModel()->selectedRows())
+    {
+        // request the unique ID and user string
+        QString idStr = mp_itemsModel->data(mp_itemsModel->index(index.row(),
+            (int)itemsTableCol::uniqId, QModelIndex())).toString();
+
+        if (idStr == "000000000000")
+            emit getSlaveUniqId(getParentVector(index.row()));
+
         CBcLogger::instance()->print(MLL::ELogLevel::LDebug,
             "Items type %i row selected %i", (int)m_deviceType, index.row());
+        break;
+    }
 
     manageControls();
 }

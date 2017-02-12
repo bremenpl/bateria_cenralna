@@ -1,6 +1,4 @@
 #include "cbclogger.h"
-#include "string.h"
-
 #include <QDebug>
 
 #ifdef _WIN32
@@ -75,11 +73,13 @@ int ClogPrinter::createNewLogFile(QString& path)
     return 1;
 }
 
-void ClogPrinter::onLogEventHappened(const logLine_t& logline)
+void ClogPrinter::onLogEventHappened(logLine_t* logline)
 {
+    Q_ASSERT(logline);
+
     // construct string
-    QString constr = "[" + logline.datetime.toString("dd/MM/yyyy-hh:mm:ss.zzz") + "]" +
-                     "[" + m_metaEnum.valueToKey(logline.loglvl) + "] " + logline.logstr;
+    QString constr = "[" + logline->datetime.toString("dd/MM/yyyy-hh:mm:ss.zzz") + "]" +
+                     "[" + m_metaEnum.valueToKey(logline->loglvl) + "] " + logline->logstr;
 
     // print to console if verbose set
     if (m_verbose)
@@ -88,6 +88,8 @@ void ClogPrinter::onLogEventHappened(const logLine_t& logline)
     // save to specified file
     if (mp_fss)
         *mp_fss << constr << endl;
+
+    delete logline;
 }
 
 // Initialize the instance pointer
@@ -130,6 +132,7 @@ void CBcLogger::startLogger(QString fileDir, bool verbose, MLL::ELogLevel ll)
 {
     // register logline type
     qRegisterMetaType<logLine_t>("logLine_t");
+    qRegisterMetaType<logLine_t*>("logLine_t*");
 
     // start the printer thread
     m_printThread.start(QThread::IdlePriority);
@@ -138,8 +141,8 @@ void CBcLogger::startLogger(QString fileDir, bool verbose, MLL::ELogLevel ll)
     m_logPrinter.moveToThread(&m_printThread);
 
     // make the connection
-    connect(mp_instance, SIGNAL(addNewLogLine(const logLine_t&)),
-            &mp_instance->m_logPrinter, SLOT(onLogEventHappened(const logLine_t&)),
+    connect(mp_instance, SIGNAL(addNewLogLine(logLine_t*)),
+            &mp_instance->m_logPrinter, SLOT(onLogEventHappened(logLine_t*)),
             Qt::QueuedConnection);
 
     // set the logger ftarted flag
@@ -175,9 +178,9 @@ void CBcLogger::print(MLL::ELogLevel lvl, const char* text, ...)
     if (lvl > m_setLogLvl)
         return;
 
-    logLine_t logline;
-    logline.loglvl = lvl;
-    logline.datetime = QDateTime::currentDateTime();
+    logLine_t* logline = new logLine_t;
+    logline->loglvl = lvl;
+    logline->datetime = QDateTime::currentDateTime();
 
     va_list argptr;
     va_start(argptr, text);
@@ -185,7 +188,7 @@ void CBcLogger::print(MLL::ELogLevel lvl, const char* text, ...)
     char* output = NULL;
     if (vasprintf(&output, text, argptr))
     {
-        logline.logstr = output;
+        logline->logstr = output;
         free(output);
     }
 

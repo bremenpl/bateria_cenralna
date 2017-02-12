@@ -4,7 +4,9 @@ CBcTcpServer::CBcTcpServer(QObject *parent) : QTcpServer(parent)
 {
     qRegisterMetaType<EDeviceTypes>("EDeviceTypes");
     qRegisterMetaType<tcpCmd>("tcpCmd");
+    qRegisterMetaType<tcpReq>("tcpReq");
     qRegisterMetaType<tcpFrame>("tcpFrame");
+    qRegisterMetaType<QVector<slaveId*>>("QVector<slaveId*>");
 }
 
 void CBcTcpServer::startServer()
@@ -12,7 +14,10 @@ void CBcTcpServer::startServer()
     int port = 12345;
 
     if(!listen(QHostAddress::Any, port))
+    {
         CBcLogger::instance()->print(MLL::ELogLevel::LCritical, "Could not start TCP server");
+        exit(1);
+    }
     else
         CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "Tcp server started, listening on port %u", port);
 }
@@ -36,6 +41,9 @@ void CBcTcpServer::incomingConnection(qintptr socketDescriptor)
     // data sending connection (because socket is in different thread)
     connect(this, SIGNAL(sendData2Socket(const QByteArray&)),
            thread, SLOT(on_sendData2Socket(const QByteArray&)), Qt::QueuedConnection);
+
+    connect(thread, &CBcClientThread::sendData2ModbusSlave,
+            this, &CBcTcpServer::on_sendData2ModbusSlave, Qt::QueuedConnection);
 
     thread->start();
 }
@@ -77,6 +85,14 @@ void CBcTcpServer::on_sendDataAck(const tcpFrame& frame)
     rb.append(frame.data);              // data
 
     emit sendData2Socket(rb);
+}
+
+void CBcTcpServer::on_sendData2ModbusSlave(const tcpReq req,
+                                           const tcpCmd cmd,
+                                           const QVector<slaveId*>& pv,
+                                           const QByteArray& data)
+{
+    emit sendData2ModbusSlave(req, cmd, pv, data);
 }
 
 

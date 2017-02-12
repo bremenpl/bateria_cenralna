@@ -37,9 +37,11 @@ private:
     int selectedRow();
     void manageControls();
     virtual void slavesChangedDevSpecific(const QVector<CBcSlaveDevice*>& slaves);
+    virtual QVector<slaveId*> getParentVector(const int row);
 
     // members
     QStringList     m_columnLabels;
+    QVector<CBcSlaveDevice*>*   mp_slaves = 0;
 
 protected:
     int             m_noOfItems;
@@ -48,7 +50,7 @@ protected:
 
 signals:
     void deviceSelected(const EDeviceTypes deviceType, const int slaveAddr);
-    void getSlaveUniqId(const QVector<slaveId*>& pv); //TODO tu skonczylem
+    void getSlaveUniqId(const QVector<slaveId*>& pv);
 
 private slots:
     void on_slavesChanged(const QVector<CBcSlaveDevice*>& slaves);

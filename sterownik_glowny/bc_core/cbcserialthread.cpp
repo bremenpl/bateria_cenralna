@@ -11,8 +11,6 @@ CBcSerialThread::CBcSerialThread(const QString& port,
                                  const quint32 noOfDevices,
                                  QObject *parent) : QThread(NULL)
 {
-    (void)parent;
-
     // create modbus master
     mp_modbusMaster =  new Csmrm(this);
     m_curScanDev = 0;
@@ -38,6 +36,15 @@ CBcSerialThread::CBcSerialThread(const QString& port,
     connect(mp_modbusMaster, SIGNAL(responseReady_ReadCoils(const quint8, const quint16, const QVector<bool>&)),
             this, SLOT(on_responseReady_ReadCoils(const quint8, const quint16, const QVector<bool>&)),
             Qt::UniqueConnection);
+
+    // tcp slots
+    if (parent)
+    {
+        CBcTcpServer* server = dynamic_cast<CBcTcpServer*>(parent);
+
+        connect(server, &CBcTcpServer::sendData2ModbusSlave,
+                this, &CBcSerialThread::on_sendData2ModbusSlave, Qt::QueuedConnection);
+    }
 
     // try to open the port
     if (!mp_modbusMaster->open(QIODevice::ReadWrite))
@@ -106,7 +113,12 @@ void CBcSerialThread::on_responseReady_ReadHoldingRegisters(const quint8 slaveId
         {
             // manage
             m_slaves[slaveId - 1]->managePresence(true);
-            mp_pollTimer->start();
+            break;
+        }
+
+        case EAddrCodes::UniqId:
+        {
+            m_slaves[slaveId - 1]->sendGetCmdToClients(tcpCmd::takeUniqId, registers);
             break;
         }
 
@@ -118,6 +130,8 @@ void CBcSerialThread::on_responseReady_ReadHoldingRegisters(const quint8 slaveId
 
     // slave device related command. Different for LC and different for BAT.
     responseReady_ReadHoldingRegistersOverride(slaveId, startAddr, registers);
+
+    mp_pollTimer->start();
 }
 
 /*!
@@ -143,6 +157,66 @@ void CBcSerialThread::on_responseReady_ReadCoils(const quint8 slaveId,
     CBcLogger::instance()->print(MLL::ELogLevel::LInfo,
                                  "Read coils response. SID:%u, SADDR:%u, NOOFCOILS:%u",
                                  slaveId, startAddr, coils.size());
+
+}
+
+void CBcSerialThread::on_sendData2ModbusSlave(const tcpReq req,
+                             const tcpCmd cmd,
+                             const QVector<slaveId*>& pv,
+                             const QByteArray& data)
+{
+    (void)data;
+    int retVal = 0;
+
+    switch (pv.first()->m_slaveType)
+    {
+        case EDeviceTypes::LineCtrler:
+        {
+            if (pv.size() <= 1) // msg for line controller, 0 was rules out earlier
+            {
+                switch (cmd)
+                {
+                    case tcpCmd::takeUniqId:
+                    {
+                        if (req != tcpReq::get)
+                            CBcLogger::instance()->print(MLL::ELogLevel::LCritical, "Unique Id is read only!");
+                        else
+                        {
+                            // read registers
+                            retVal = mp_modbusMaster->sendRequest_ReadHoldingRegisters(
+                                        pv.first()->m_slaveAddr, (quint16)EAddrCodes::UniqId, NO_OF_UNIQDID_REG);
+
+                            if (retVal <= 0)
+                                CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
+                                        << "Unable to read UniqId!";
+
+                            // start response timeout timer
+                            mp_respToutTimer->start();
+                            mp_pollTimer->stop();
+                        }
+                        break;
+                    }
+
+                    default:
+                    {
+                        CBcLogger::instance()->print(MLL::ELogLevel::LCritical,
+                            "Cannot send serial data for unknown cmd (%i)", (int)cmd);
+                    }
+                }
+            }
+            else // msg for RC
+            {
+                // ADD CODE
+            }
+            break;
+        }
+
+        default:
+        {
+            CBcLogger::instance()->print(MLL::ELogLevel::LCritical,
+                "Cannot send serial data to unknown slave type (%i)", (int)pv.first()->m_slaveType);
+        }
+    }
 }
 
 /*!
@@ -188,9 +262,6 @@ void CBcSerialThread::on_respTimeout()
             {
                 // manage
                 m_slaves[mp_modbusMaster->txFrame().slaveAddr - 1]->managePresence(false);
-
-                // all ok just start
-                mp_pollTimer->start();
             }
             else
             {
@@ -200,6 +271,9 @@ void CBcSerialThread::on_respTimeout()
             }
         }
     }
+
+    // all ok just start
+    mp_pollTimer->start();
 }
 
 /*!

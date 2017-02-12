@@ -132,6 +132,32 @@ void CBcSlaveDevice::presenceSend()
     emit sendDataAck(frame);
 }
 
+void CBcSlaveDevice::sendGetCmdToClients(const tcpCmd cmd, const QVector<quint16>& regs)
+{
+    tcpFrame frame;
+    frame.dType = m_slaveId.m_slaveType;
+    frame.slaveAddr = m_slaveId.m_slaveAddr;
+    frame.req = tcpReq::get;
+    frame.cmd = cmd;
+
+    // data
+    foreach (auto reg, regs)
+    {
+        frame.data.append((quint8)reg);
+        frame.data.append((quint8)(reg >> 8));
+    }
+
+    // append parent vector
+    foreach (slaveId* item, m_pv)
+    {
+        frame.data.append(item->m_slaveAddr);
+        frame.data.append((quint8)item->m_slaveType);
+    }
+
+    frame.len = frame.data.size();
+    emit sendDataAck(frame);
+}
+
 /*!
  * \brief CBcSlaveDevice::clearChildPresence: A slave shall clear its presense and also
  * clear the presence of its each subslave. That each subslave will also clear its presence

@@ -20,10 +20,18 @@ public:
 signals:
     void sendData2Socket(const QByteArray& data);
     void newClientConnected();
+    void sendData2ModbusSlave(const tcpReq req,
+                              const tcpCmd cmd,
+                              const QVector<slaveId*>& pv,
+                              const QByteArray& data);
 
 public slots:
     void on_clientConnected(QTcpSocket* socket);
     void on_clientDisconnected(QTcpSocket* socket);
+    void on_sendData2ModbusSlave(const tcpReq req,
+                                 const tcpCmd cmd,
+                                 const QVector<slaveId*>& pv,
+                                 const QByteArray& data);
 
     void on_sendDataAck(const tcpFrame& frame);
 

@@ -13,6 +13,7 @@
 #include "cbcslavedevice.h"
 
 #define NO_OF_PING_REGS     2 // a const for now
+#define NO_OF_UNIQDID_REG   6
 
 class CBcSerialThread : public QThread
 {
@@ -21,6 +22,7 @@ public:
     enum class EAddrCodes
     {
         Ping            = 0,
+        UniqId          = 2,
     };
 
     explicit CBcSerialThread(const QString& port,
@@ -46,6 +48,15 @@ public slots:
                                     const quint16 startAddr,
                                     const QVector<bool>& coils);
 
+    void on_sendData2ModbusSlave(const tcpReq req,
+                                 const tcpCmd cmd,
+                                 const QVector<slaveId*>& pv,
+                                 const QByteArray& data);
+
+private slots:
+    void on_pollTimeout();
+    void on_respTimeout();
+
 signals:
 
 private:
@@ -59,10 +70,6 @@ private:
 
 protected:
     QVector<CBcSlaveDevice*> m_slaves;      /*!< "list" of line controllers slave devices */
-
-private slots:
-    void on_pollTimeout();
-    void on_respTimeout();
 
 };
 

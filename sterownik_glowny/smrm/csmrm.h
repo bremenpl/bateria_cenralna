@@ -6,6 +6,7 @@
 #include <QSerialPortInfo>
 #include <QVector>
 #include <QByteArray>
+#include <QMutex>
 
 #define MAX_QUAN_OF_REGS            126
 #define MAX_QUAN_OF_COILS           2000

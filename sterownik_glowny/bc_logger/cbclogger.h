@@ -9,6 +9,9 @@
 #include <QTextStream>
 #include <QFile>
 
+#include <stdio.h>      /* printf */
+#include <stdarg.h>     /* va_list, va_start, va_arg, va_end */
+
 
 /*
  * @brief   Describes the log level for an item
@@ -59,7 +62,7 @@ public:
     int createNewLogFile(QString& path);
 
 public slots:
-    void onLogEventHappened(const logLine_t& logline);
+    void onLogEventHappened(logLine_t* logline);
 
 private:
     // methods
@@ -95,7 +98,7 @@ public:
 
 
 signals:
-    void addNewLogLine(const logLine_t& logline);
+    void addNewLogLine(logLine_t* logline);
 
 private:
 // members
@@ -119,7 +122,7 @@ struct LoggerHelper
 {
 private:
     bool m_noPrint;
-    logLine_t m_logline;
+    logLine_t* mp_logline;
 
 public:
     explicit LoggerHelper(MLL::ELogLevel ll = MLL::LDebug,
@@ -130,9 +133,10 @@ public:
             m_noPrint = true;
         else
         {
+            mp_logline = new logLine_t;
             m_noPrint = false;
-            m_logline.datetime = QDateTime::currentDateTime();
-            m_logline.loglvl = ll;
+            mp_logline->datetime = QDateTime::currentDateTime();
+            mp_logline->loglvl = ll;
         }
     }
     //LoggerHelper(LoggerHelper&&) = default;
@@ -140,7 +144,7 @@ public:
     ~LoggerHelper()
     {
         if (!m_noPrint)
-            emit CBcLogger::instance()->addNewLogLine(m_logline);
+            emit CBcLogger::instance()->addNewLogLine(mp_logline);
     }
 
     template<typename T>
@@ -148,7 +152,7 @@ public:
     {
         if (!m_noPrint)
         {
-            QTextStream s(&m_logline.logstr);
+            QTextStream s(&mp_logline->logstr);
             s << val;
         }
 

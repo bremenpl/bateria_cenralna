@@ -46,6 +46,7 @@ SOURCES += main.cpp\
     cbatdevice.cpp \
     citemscharmenu.cpp \
     cchardevice.cpp \
+    ctcpparser.cpp
 
 HEADERS  += mainwindow.h \
     ../bc_logger/cbclogger.h \
@@ -73,6 +74,7 @@ HEADERS  += mainwindow.h \
     cbatdevice.h \
     citemscharmenu.h \
     cchardevice.h \
+    ctcpparser.h
 
 FORMS    += mainwindow.ui \
     cdevicedialog.ui \

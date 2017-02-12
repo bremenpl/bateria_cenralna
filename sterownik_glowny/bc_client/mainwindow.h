@@ -24,6 +24,7 @@
 #include "citemscharmenu.h"
 #include "cchardevice.h"
 #include "types.h"
+#include "ctcpparser.h"
 
 // from core
 #include "cbclc.h"
@@ -42,6 +43,7 @@ public:
     ~MainWindow();
 
     bool virtKeyboardOn() { return m_virtKeyboardOn; }
+    QVector<CBcSlaveDevice*>* slaves() { return &m_slaves; }
 
 public slots:
     void on_tcpSocketConnected();
@@ -58,13 +60,14 @@ private slots:
     void on_tbMain_currentChanged(int index);
     void on_slavesChanged(const QVector<CBcSlaveDevice*>& slaves);
 
+    void on_getSlaveUniqId(const QVector<slaveId*>& pv);
+    void on_newFramesAvailable(QQueue<tcpFrame*>* framesQueue);
+
 private:
     bool fileExists(const QString& path);
     void setDefaultSettings(QSettings* mp_settings);
     void readAllSettings(QSettings* mp_settings);
     CAbstractMenu* currentMenuObject(const int index);
-    void digForTcpFrames(const QByteArray& data);
-    void handleTcpRxFrames();
 
     void slavePresent(QVector<slaveId*>& pv);
     void slaveAbsent(QVector<slaveId*>& pv);
@@ -73,6 +76,8 @@ private:
     QVector<CBcSlaveDevice*>* getSlaveIndex(QVector<slaveId*>& pv, int& index);
 
     void slaveUniqIdObtained(const quint16* uniqId, QVector<slaveId*>& pv);
+    void sendDataRequest(const tcpFrame& frame);
+    void sendData2Socket(const QByteArray& data);
 
     // members
     Ui::MainWindow *ui;
@@ -88,10 +93,7 @@ private:
     QTcpSocket*     mp_tcpSocket;
     QString         m_ip;
     int             m_port;
-
-    tcpRespState    m_tcpRxState = tcpRespState::devType;
-    tcpFrame*       mp_rxTcpFrame = 0;
-    QQueue<tcpFrame*> m_rxTcpQueue;
+    CTcpParser      m_tcpParser;
 
     QVector<CBcSlaveDevice*> m_slaves;      /*!< "list" of slave devices */
     slaveId         m_selectedSlave;

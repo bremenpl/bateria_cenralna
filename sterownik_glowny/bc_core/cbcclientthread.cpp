@@ -27,6 +27,10 @@ void CBcClientThread::run()
     connect(mp_socket, SIGNAL(readyRead()), this, SLOT(readyRead()), Qt::DirectConnection);
     connect(mp_socket, SIGNAL(disconnected()), this, SLOT(disconnected()));
 
+    // new way of signal/slot connecting
+    connect(&m_tcpParser, &CTcpParser::newFramesAvailable,
+            this, &CBcClientThread::on_newFramesAvailable);
+
     // We'll have multiple clients, we want to know which is which
     CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "Socket 0x%X is connected", m_socketDescriptor);
 
@@ -42,13 +46,13 @@ void CBcClientThread::run()
 
 void CBcClientThread::readyRead()
 {
-    /*// get the information
-    QByteArray Data = mp_socket->readAll();
+    // get the information
+    QByteArray data = mp_socket->readAll();
 
-    // will write on server side window
-    qDebug() << socketDescriptor << " Data in: " << Data;
+    CBcLogger::instance()->print(MLL::ELogLevel::LDebug,
+        "Socket 0x%X received %i bytes of data", m_socketDescriptor, data.size());
 
-    socket->write(Data);*/
+    m_tcpParser.digForTcpFrames(data);
 }
 
 void CBcClientThread::disconnected()
@@ -60,8 +64,8 @@ void CBcClientThread::disconnected()
     exit(0);
 }
 
- void CBcClientThread::on_sendData2Socket(const QByteArray& data)
- {
+void CBcClientThread::on_sendData2Socket(const QByteArray& data)
+{
     quint32 lenSent = mp_socket->write(data, data.length());
     if (lenSent)
         CBcLogger::instance()->print(MLL::ELogLevel::LInfo,
@@ -69,7 +73,45 @@ void CBcClientThread::disconnected()
     else
         CBcLogger::instance()->print(MLL::ELogLevel::LCritical,
                                      "Failed to send data to socket 0x%X", m_socketDescriptor);
- }
+}
+
+void CBcClientThread::on_newFramesAvailable(QQueue<tcpFrame*>* framesQueue)
+{
+    Q_ASSERT(framesQueue);
+
+    while (framesQueue->size())
+    {
+        tcpFrame* frame = framesQueue->dequeue();
+        QVector<slaveId*> pv; // parent vector
+        QByteArray data;
+        int depthLevel = 0, dataLen = -1;
+
+        // switch needed only to insert command specific data len
+        switch (frame->cmd)
+        {
+            case tcpCmd::takeUniqId: dataLen = 0;   break; // only get available for bc_core
+
+            default:
+            {
+                CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
+                        << "Unhandled tcp Rx cmd: " << (int)frame->cmd;
+            }
+        }
+
+        if (dataLen >= 0)
+        {
+            depthLevel = (frame->len - dataLen) / 2;
+            pv.append(CTcpParser::getParentVector(frame, depthLevel, dataLen));
+
+            // send the data further
+            emit sendData2ModbusSlave(frame->req, frame->cmd, pv, data);
+        }
+
+        // finally delete this frame
+        delete frame;
+        pv.clear();
+    }
+}
 
 
 

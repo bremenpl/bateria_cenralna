@@ -27,6 +27,8 @@ public:
     void setUniqId(const quint16* uniqId) { memcpy(m_uniqId, uniqId, UNIQ_ID_REGS * 2); }
     quint16* uniqId() { return m_uniqId; }
 
+    void sendGetCmdToClients(const tcpCmd cmd, const QVector<quint16>& regs);
+
 signals:
     void sendDataAck(const tcpFrame& frame);
 
