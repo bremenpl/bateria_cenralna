@@ -1,6 +1,6 @@
 #include "csmrm.h"
-
 #include "cbclogger.h"
+#include <QDebug>
 
 Csmrm::Csmrm(QObject *parent) : QSerialPort(parent)
 {
@@ -13,6 +13,9 @@ Csmrm::Csmrm(QObject *parent) : QSerialPort(parent)
     // set default params
     mp_rxFrame = 0;
     setResponseDefaultState();
+
+    //connect(this, &Csmrm::newTxFrameEnqueued,
+           // this, &Csmrm::on_newTxFrameEnqueued, Qt::QueuedConnection);
 }
 
 Csmrm::~Csmrm()
@@ -223,7 +226,7 @@ void Csmrm::parseResponse(SModBusFrame* frame)
                 hregs.append(reg);
             }
 
-            emit responseReady_ReadHoldingRegisters(frame->slaveAddr, m_regStartAddr, hregs);
+            emit responseReady_ReadHoldingRegisters(frame->slaveAddr, m_startAddr, hregs);
             break;
         }
 
@@ -258,12 +261,42 @@ qint32 Csmrm::sendFrame(const SModBusFrame& frame)
     // send the data through serial port
     quint32 retVal = write(rb);
 
+    // save start addr in case a frame needs it (ie. read holding regs)
+    m_startAddr = (quint16)frame.data[0] << 8;
+    m_startAddr |= (quint16)frame.data[1];
+
     // print raw data
     if (retVal)
+    {
         CBcLogger::instance()->print(MLL::ELogLevel::LDebug)
                 << "MB SENT: " << convertArray2HexString(rb);
+    }
 
     return retVal;
+}
+
+/*!
+ * \brief enqueueFrame: Enqueues the frame for sending
+ * \param frame
+ * \return
+ */
+void Csmrm::enqueueFrame(const SModBusFrame& frame)
+{
+    m_txFramesQueue.enqueue(frame);
+    //qDebug() << "queue++" << m_txFramesQueue.size();
+}
+
+void Csmrm::on_newTxFrameEnqueued()
+{
+    if (m_txFramesQueue.size())
+    {
+        m_txFrame = m_txFramesQueue.dequeue();
+        //qDebug() << "queue--" << m_txFramesQueue.size();
+
+        if (!sendFrame(m_txFrame))
+            CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
+                    << "Error sending data through modbus";
+    }
 }
 
 /*!
@@ -273,34 +306,33 @@ qint32 Csmrm::sendFrame(const SModBusFrame& frame)
  * \param nrOfRegs: number of registers to read (1-125)
  * \return
  */
-qint32 Csmrm::sendRequest_ReadHoldingRegisters(const quint8 slaveId, const quint16 startAddr, const quint16 nrOfRegs)
+void Csmrm::sendRequest_ReadHoldingRegisters(const quint8 slaveId, const quint16 startAddr, const quint16 nrOfRegs)
 {
     // validate quantity of registers to read
     if ((nrOfRegs < 1) || (nrOfRegs > MAX_QUAN_OF_REGS))
-        return -1;
+        return;
 
+    SModBusFrame frame;
     // assign slave id
-    m_txFrame.slaveAddr = slaveId;
+    frame.slaveAddr = slaveId;
 
     // function code
-    m_txFrame.functionCode = EFuncCodes::ReadHoldingRegisters;
+    frame.functionCode = EFuncCodes::ReadHoldingRegisters;
 
     // data, starting address HI and LO
-    m_txFrame.data.clear();
-    m_txFrame.data.append((quint8)(startAddr >> 8));
-    m_txFrame.data.append((quint8)startAddr);
-    // save the start addr for response parsing
-    m_regStartAddr = startAddr;
+    frame.data.clear();
+    frame.data.append((quint8)(startAddr >> 8));
+    frame.data.append((quint8)startAddr);
 
     // data, no of registers HI and LO
-    m_txFrame.data.append((quint8)(nrOfRegs >> 8)); // this is retarded, since max amount of registers is 125...
-    m_txFrame.data.append((quint8)nrOfRegs);
+    frame.data.append((quint8)(nrOfRegs >> 8)); // this is retarded, since max amount of registers is 125...
+    frame.data.append((quint8)nrOfRegs);
 
     // calculate CRC
-    addCrc2Frame(m_txFrame);
+    addCrc2Frame(frame);
 
     // send the frame
-    return sendFrame(m_txFrame);
+    enqueueFrame(frame);
 }
 
 /*!
@@ -310,33 +342,32 @@ qint32 Csmrm::sendRequest_ReadHoldingRegisters(const quint8 slaveId, const quint
  * \param nrOfRegs: number of registers to read (1-125)
  * \return
  */
-qint32 Csmrm::sendRequest_ReadCoils(const quint8 slaveId, const quint16 startAddr, const quint16 nrOfCoils)
+void Csmrm::sendRequest_ReadCoils(const quint8 slaveId, const quint16 startAddr, const quint16 nrOfCoils)
 {
     // validate quantity of coils to read
     if ((nrOfCoils < 1) || (nrOfCoils > MAX_QUAN_OF_COILS))
-        return -1;
+        return;
 
+    SModBusFrame frame;
     // assign slave id
-    m_txFrame.slaveAddr = slaveId;
+    frame.slaveAddr = slaveId;
 
     // function code
-    m_txFrame.functionCode = EFuncCodes::ReadCoils;
+    frame.functionCode = EFuncCodes::ReadCoils;
 
     // data, starting address HI and LO
-    m_txFrame.data.append((quint8)(startAddr >> 8));
-    m_txFrame.data.append((quint8)startAddr);
-    // save the start addr for response parsing
-    m_regStartAddr = startAddr;
+    frame.data.append((quint8)(startAddr >> 8));
+    frame.data.append((quint8)startAddr);
 
     // data, no of coils HI and LO
-    m_txFrame.data.append((quint8)(nrOfCoils >> 8));
-    m_txFrame.data.append((quint8)nrOfCoils);
+    frame.data.append((quint8)(nrOfCoils >> 8));
+    frame.data.append((quint8)nrOfCoils);
 
     // calculate CRC
-    addCrc2Frame(m_txFrame);
+    addCrc2Frame(frame);
 
     // send the frame
-    return sendFrame(m_txFrame);
+    enqueueFrame(frame);
 }
 
 

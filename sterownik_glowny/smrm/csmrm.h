@@ -6,7 +6,7 @@
 #include <QSerialPortInfo>
 #include <QVector>
 #include <QByteArray>
-#include <QMutex>
+#include <QQueue>
 
 #define MAX_QUAN_OF_REGS            126
 #define MAX_QUAN_OF_COILS           2000
@@ -60,26 +60,30 @@ public:
     explicit Csmrm(QObject *parent = 0);
     ~Csmrm();
 
-    qint32 sendRequest_ReadHoldingRegisters(const quint8 slaveId, const quint16 startAddr, const quint16 nrOfRegs);
-    qint32 sendRequest_ReadCoils(const quint8 slaveId, const quint16 startAddr, const quint16 nrOfCoils);
+    void sendRequest_ReadHoldingRegisters(const quint8 slaveId, const quint16 startAddr, const quint16 nrOfRegs);
+    void sendRequest_ReadCoils(const quint8 slaveId, const quint16 startAddr, const quint16 nrOfCoils);
 
     const SModBusFrame& txFrame(){ return m_txFrame; }
+    QQueue<SModBusFrame>* txFrameQueue() { return &m_txFramesQueue; }
+
+public slots:
+    void on_newTxFrameEnqueued();
 
 signals:
     void responseReady_ReadHoldingRegisters(const quint8 slaveId,
                                             const quint16 startAddr,
                                             const QVector<quint16>& registers);
-
     void responseReady_ReadCoils(const quint8 slaveId,
                                  const quint16 startAddr,
                                  const QVector<bool>& coils);
-
     void responseReady_ExceptionCode(const quint8 slaveId, EExceptionCodes code);
+    void newTxFrameEnqueued();
 
 private:
     quint16 calculateCRC(const char *data, qint32 len);
     void addCrc2Frame(SModBusFrame& frame);
     qint32 sendFrame(const SModBusFrame& frame);
+    void enqueueFrame(const SModBusFrame& frame);
     const QString convertArray2HexString(const QByteArray& array);
     qint32 digForResponse(const QByteArray& buf);
     void setResponseDefaultState();
@@ -93,8 +97,9 @@ private:
     quint32         m_crcState;
 
     // response parsing help parameters
-    quint16         m_regStartAddr;
     SModBusFrame    m_txFrame;
+    QQueue<SModBusFrame> m_txFramesQueue;
+    quint16         m_startAddr;
 
 private slots:
     void on_readyRead();

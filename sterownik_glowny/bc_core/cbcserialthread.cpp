@@ -166,7 +166,6 @@ void CBcSerialThread::on_sendData2ModbusSlave(const tcpReq req,
                              const QByteArray& data)
 {
     (void)data;
-    int retVal = 0;
 
     switch (pv.first()->m_slaveType)
     {
@@ -183,12 +182,8 @@ void CBcSerialThread::on_sendData2ModbusSlave(const tcpReq req,
                         else
                         {
                             // read registers
-                            retVal = mp_modbusMaster->sendRequest_ReadHoldingRegisters(
-                                        pv.first()->m_slaveAddr, (quint16)EAddrCodes::UniqId, NO_OF_UNIQDID_REG);
-
-                            if (retVal <= 0)
-                                CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
-                                        << "Unable to read UniqId!";
+                            mp_modbusMaster->sendRequest_ReadHoldingRegisters(
+                                pv.first()->m_slaveAddr, (quint16)EAddrCodes::UniqId, NO_OF_UNIQDID_REG);
 
                             // start response timeout timer
                             mp_respToutTimer->start();
@@ -225,20 +220,22 @@ void CBcSerialThread::on_sendData2ModbusSlave(const tcpReq req,
  */
 void CBcSerialThread::on_pollTimeout()
 {
-    int retVal = 0;
+    // ping only if no more messages pending
+    if (!mp_modbusMaster->txFrameQueue()->size())
+    {
+        // check slave overflow, scan one slave at a time
+        if (m_curScanDev >= m_noOfDev2Scan)
+            m_curScanDev = 1;
+        else
+            m_curScanDev++;
 
-    // check slave overflow, scan one slave at a time
-    if (m_curScanDev >= m_noOfDev2Scan)
-        m_curScanDev = 1;
-    else
-        m_curScanDev++;
+        // read registers
+        mp_modbusMaster->sendRequest_ReadHoldingRegisters(
+            m_curScanDev, (quint16)EAddrCodes::Ping, NO_OF_PING_REGS);
+    }
 
-    // read registers
-    retVal = mp_modbusMaster->sendRequest_ReadHoldingRegisters(
-                m_curScanDev, (quint16)EAddrCodes::Ping, NO_OF_PING_REGS);
-
-    if (retVal <= 0)
-        CBcLogger::instance()->print(MLL::ELogLevel::LCritical) << "Unable to ping!";
+    // dequeue and send
+    mp_modbusMaster->on_newTxFrameEnqueued();
 
     // start response timeout timer
     mp_respToutTimer->start();
@@ -297,11 +294,11 @@ void CBcSerialThread::run()
 
     // set resp timeout timer
     mp_respToutTimer->setSingleShot(true);
-    mp_respToutTimer->setInterval(100);
+    mp_respToutTimer->setInterval(200);
 
     // set and start poll timer
     mp_pollTimer->setSingleShot(true);
-    mp_pollTimer->setInterval(200);
+    mp_pollTimer->setInterval(100);
     mp_pollTimer->start();
 
     exec();

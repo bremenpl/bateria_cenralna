@@ -29,7 +29,7 @@ void CBcClientThread::run()
 
     // new way of signal/slot connecting
     connect(&m_tcpParser, &CTcpParser::newFramesAvailable,
-            this, &CBcClientThread::on_newFramesAvailable);
+            this, &CBcClientThread::on_newFramesAvailable, Qt::QueuedConnection);
 
     // We'll have multiple clients, we want to know which is which
     CBcLogger::instance()->print(MLL::ELogLevel::LInfo, "Socket 0x%X is connected", m_socketDescriptor);
@@ -79,7 +79,7 @@ void CBcClientThread::on_newFramesAvailable(QQueue<tcpFrame*>* framesQueue)
 {
     Q_ASSERT(framesQueue);
 
-    while (framesQueue->size())
+    if (framesQueue->size())
     {
         tcpFrame* frame = framesQueue->dequeue();
         QVector<slaveId*> pv; // parent vector
