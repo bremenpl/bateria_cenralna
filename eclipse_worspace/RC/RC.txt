@@ -1,0 +1,69 @@
+Configuration	RC
+STM32CubeMX 	4.18.0
+Date	02/18/2017
+MCU	STM32F051C8Tx
+
+
+
+PERIPHERALS	MODES	FUNCTIONS	PINS
+I2C1	I2C	I2C1_SCL	PB6
+I2C1	I2C	I2C1_SDA	PB7
+RCC	Crystal/Ceramic Resonator	RCC_OSC_IN	PF0-OSC_IN
+RCC	Crystal/Ceramic Resonator	RCC_OSC_OUT	PF1-OSC_OUT
+SYS	Serial_Wire	SYS_SWCLK	PA14
+SYS	Serial_Wire	SYS_SWDIO	PA13
+SYS	SysTick	SYS_VS_Systick	VP_SYS_VS_Systick
+USART1	Asynchronous	USART1_RX	PA10
+USART1	Asynchronous	USART1_TX	PA9
+
+
+
+Pin Nb	PINs	FUNCTIONs	LABELs
+5	PF0-OSC_IN	RCC_OSC_IN	
+6	PF1-OSC_OUT	RCC_OSC_OUT	
+11	PA1	GPIO_EXTI1	AcFail
+12	PA2	GPIO_EXTI2	ExternalACDetected
+13	PA3	GPIO_EXTI3	CurrentDetected
+14	PA4	GPIO_Output	McuLampEnable
+30	PA9	USART1_TX	
+31	PA10	USART1_RX	
+32	PA11	GPIO_Input	ENCB3
+33	PA12	GPIO_Input	ENCB1
+34	PA13	SYS_SWDIO	
+35	PF6	GPIO_Input	ENCB4
+36	PF7	GPIO_Input	ENCB2
+37	PA14	SYS_SWCLK	
+38	PA15	GPIO_Input	ENCA3
+39	PB3	GPIO_Input	ENCA1
+40	PB4	GPIO_Input	ENCA4
+41	PB5	GPIO_Input	ENCA2
+42	PB6	I2C1_SCL	
+43	PB7	I2C1_SDA	
+
+
+
+SOFTWARE PROJECT
+
+Project Settings : 
+Project Name : RC
+Project Folder : M:\Github\bateria_cenralna\eclipse_worspace\RC
+Toolchain / IDE : SW4STM32
+Firmware Package Name and Version : STM32Cube FW_F0 V1.7.0
+
+
+Code Generation Settings : 
+STM32Cube Firmware Library Package : Copy only the necessary library files
+Generate peripheral initialization as a pair of '.c/.h' files per peripheral : Yes
+Backup previously generated files when re-generating : No
+Delete previously generated files when not re-generated : Yes
+Set all free pins as analog (to optimize the power consumption) : No
+
+
+Toolchains Settings : 
+Compiler Optimizations : Balanced Size/Speed
+
+
+
+
+
+
