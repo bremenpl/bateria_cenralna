@@ -98,6 +98,7 @@ qint32 Csmrm::digForResponse(const QByteArray& buf)
                 switch ((EFuncCodes)byte)
                 {
                     case EFuncCodes::ReadHoldingRegisters:
+                    case EFuncCodes::WriteSingleCoil:
                     {
                         mp_rxFrame->functionCode = (EFuncCodes)byte;
                         m_rxState = EResponseState::Data;
@@ -143,6 +144,18 @@ qint32 Csmrm::digForResponse(const QByteArray& buf)
                                 m_rxState = EResponseState::Crc;
                         }
                         break;
+                    }
+
+                    case EFuncCodes::WriteSingleCoil:
+                    {
+                        // byte count (/2 = nr of registers)
+                        mp_rxFrame->data.append(byte);
+                        m_currentIndex++;
+                        m_rxRawBytes.append(byte);
+
+                        // check when to move to crc phase
+                        if (m_currentIndex >= 5)
+                            m_rxState = EResponseState::Crc;
                     }
 
                     default: { }
@@ -227,6 +240,16 @@ void Csmrm::parseResponse(SModBusFrame* frame)
             }
 
             emit responseReady_ReadHoldingRegisters(frame->slaveAddr, m_startAddr, hregs);
+            break;
+        }
+
+        case EFuncCodes::WriteSingleCoil:
+        {
+            // addr
+            quint16 addr = ((quint16)frame->data[0] << 8) | frame->data[1];
+            bool val = (bool)frame->data[2];
+
+            emit responseReady_WriteSingleCoil(frame->slaveAddr, addr, val);
             break;
         }
 
@@ -362,6 +385,115 @@ void Csmrm::sendRequest_ReadCoils(const quint8 slaveId, const quint16 startAddr,
     // data, no of coils HI and LO
     frame.data.append((quint8)(nrOfCoils >> 8));
     frame.data.append((quint8)nrOfCoils);
+
+    // calculate CRC
+    addCrc2Frame(frame);
+
+    // send the frame
+    enqueueFrame(frame);
+}
+
+/*!
+ * \brief Csmrm::sendRequest_WriteSingleCoil Sends write single coil request to specified slave
+ * \param slaveId: Modbus slave id (1-247)
+ * \param addr: read registers start address
+ * \param val: coil state
+ */
+void Csmrm::sendRequest_WriteSingleCoil(const uint8_t slaveId, const uint16_t addr, const bool val)
+{
+    SModBusFrame frame;
+    // assign slave id
+    frame.slaveAddr = slaveId;
+
+    // function code
+    frame.functionCode = EFuncCodes::WriteSingleCoil;
+
+    // data, output address HI and LO
+    frame.data.append((quint8)(addr >> 8));
+    frame.data.append((quint8)addr);
+
+    // data, value
+    quint8 temp = 0;
+    if (val)
+        temp = 0xFF;
+
+    frame.data.append(temp);
+    temp = 0;
+    frame.data.append(temp);
+
+    // calculate CRC
+    addCrc2Frame(frame);
+
+    // send the frame
+    enqueueFrame(frame);
+}
+
+/*!
+ * \brief Csmrm::sendRequest_WriteSingleRegister
+ * \param slaveId: Modbus slave id (1-247)
+ * \param addr: read registers start address
+ * \param val: register value
+ */
+void Csmrm::sendRequest_WriteSingleRegister(const uint8_t slaveId, const uint16_t addr, const uint16_t val)
+{
+    SModBusFrame frame;
+    // assign slave id
+    frame.slaveAddr = slaveId;
+
+    // function code
+    frame.functionCode = EFuncCodes::WriteSingleRegister;
+
+    // data, address HI and LO
+    frame.data.append((quint8)(addr >> 8));
+    frame.data.append((quint8)addr);
+
+    // data, value
+    frame.data.append((quint8)(val >> 8));
+    frame.data.append((quint8)val);
+
+    // calculate CRC
+    addCrc2Frame(frame);
+
+    // send the frame
+    enqueueFrame(frame);
+}
+
+/*!
+ * \brief Csmrm::sendRequest_WriteMultipleRegisters
+ * \param slaveId
+ * \param startAddr
+ * \param nrOfRegs
+ * \param regs
+ */
+void Csmrm::sendRequest_WriteMultipleRegisters(const uint8_t slaveId,
+                                               const quint16 startAddr,
+                                               const quint16 nrOfRegs,
+                                               const QVector<uint16_t> regs)
+{
+    SModBusFrame frame;
+    // assign slave id
+    frame.slaveAddr = slaveId;
+
+    // function code
+    frame.functionCode = EFuncCodes::WriteMultipleRegisters;
+
+    // data, starting addraddress HI and LO
+    frame.data.append((quint8)(startAddr >> 8));
+    frame.data.append((quint8)startAddr);
+
+    // data, quiantity of registers
+    frame.data.append((quint8)(nrOfRegs >> 8));
+    frame.data.append((quint8)nrOfRegs);
+
+    // byte count
+    frame.data.append((quint8)nrOfRegs * 2);
+
+    // registers values
+    foreach (auto reg, regs)
+    {
+        frame.data.append((quint8)(reg >> 8));
+        frame.data.append((quint8)reg);
+    }
 
     // calculate CRC
     addCrc2Frame(frame);

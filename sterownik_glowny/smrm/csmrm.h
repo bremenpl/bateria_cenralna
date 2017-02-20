@@ -63,16 +63,23 @@ public:
     void sendRequest_ReadHoldingRegisters(const quint8 slaveId, const quint16 startAddr, const quint16 nrOfRegs);
     void sendRequest_ReadCoils(const quint8 slaveId, const quint16 startAddr, const quint16 nrOfCoils);
 
+    void sendRequest_WriteSingleCoil(const uint8_t slaveId, const uint16_t addr, const bool val);
+    void sendRequest_WriteSingleRegister(const uint8_t slaveId, const uint16_t addr, const uint16_t val);
+    void sendRequest_WriteMultipleRegisters(const uint8_t slaveId, const quint16 startAddr, const quint16 nrOfRegs,
+                                            const QVector<uint16_t> regs);
+
     const SModBusFrame& txFrame(){ return m_txFrame; }
     QQueue<SModBusFrame>* txFrameQueue() { return &m_txFramesQueue; }
-
-public slots:
     void on_newTxFrameEnqueued();
+
 
 signals:
     void responseReady_ReadHoldingRegisters(const quint8 slaveId,
                                             const quint16 startAddr,
                                             const QVector<quint16>& registers);
+    void responseReady_WriteSingleCoil(const quint8 slaveId,
+                                       const quint16 addr,
+                                       const bool val);
     void responseReady_ReadCoils(const quint8 slaveId,
                                  const quint16 startAddr,
                                  const QVector<bool>& coils);
