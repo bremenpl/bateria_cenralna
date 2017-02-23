@@ -15,7 +15,7 @@
 
 
 /* Includes ------------------------------------------------------------------*/
-#if defined(STM32F030x8) || defined(STM32F091xC)
+#if defined(STM32F030x8) || defined(STM32F091xC) || defined(STM32F051x8) || defined(STM32F098xx)
 	#include "stm32f0xx_hal.h"
 #endif
 

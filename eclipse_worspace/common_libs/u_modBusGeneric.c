@@ -240,6 +240,9 @@ HAL_StatusTypeDef mbg_SendData(mbgUart_t* uart)
 	while (mbg_CheckSendStatus(uart->handle))
 		osDelay(1);
 
+	// disable receiver
+	mbg_EnableReceiver(uart->handle, 0, 0, 0);
+
 	retVal += HAL_UART_Transmit_DMA(uart->handle, uart->buf, uart->len);
 
 	// release
@@ -288,7 +291,6 @@ HAL_StatusTypeDef mbg_EnableReceiver(UART_HandleTypeDef* uHandle,
 		uint8_t* data, const uint16_t len, const uint32_t enableRxTimeout)
 {
 	assert_param(uHandle);
-	assert_param(data);
 	HAL_StatusTypeDef retVal = HAL_OK;
 
 	// Disable RX timeout interrupt
@@ -301,15 +303,18 @@ HAL_StatusTypeDef mbg_EnableReceiver(UART_HandleTypeDef* uHandle,
 	while ((HAL_UART_GetState(uHandle) != HAL_UART_STATE_READY) &&
 			(HAL_UART_GetState(uHandle) != HAL_UART_STATE_BUSY_TX));
 
-	// Enable receive
-	if (len)
+	// Enable receiver
+	if (len && data)
+	{
+		SET_BIT(uHandle->Instance->CR1, USART_CR1_RE);
 		retVal += HAL_UART_Receive_DMA(uHandle, data, len);
+	}
+	else // disable receiving
+		CLEAR_BIT(uHandle->Instance->CR1, USART_CR1_RE);
 
 	// Enable Rx timeout if rx DMA is ok and parameter is set
 	if ((!retVal) && enableRxTimeout)
 		mbg_EnableRxTimeout(uHandle);
-	else
-		mbg_DisableRxTimeout(uHandle);
 
 	return retVal;
 }
