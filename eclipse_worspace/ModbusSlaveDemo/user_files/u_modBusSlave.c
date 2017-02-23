@@ -336,6 +336,8 @@ void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle)
 				if (++mbsu->mbg.rxQ.framesIndex >= mbsu->mbg.rxQ.framesBufLen)
 					mbsu->mbg.rxQ.framesIndex = 0;
 			}
+
+			mbsu->mbg.rxState = e_mbsRxState_none;
 			break;
 		}
 
@@ -351,6 +353,17 @@ void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle)
 	// Wait for set data if operational vars set correctly
 	if (len && data_p)
 		mbg_EnableReceiver(uHandle, data_p, len, rxTimeoutSet);
+}
+
+/*
+ * @brief	ModBus SLAVE strong override function.
+ * 			Use it to turn on the receiver after succesfull response is sent.
+ * 			Return if \ref uHandle does not match configured periph.
+ * @param	uHandle: pointer to the uart modbus slave struct.
+ */
+void mbs_uartTxRoutine(UART_HandleTypeDef* uHandle)
+{
+	mbs_uartRxTimeoutRoutine(uHandle);
 }
 
 /*
@@ -389,8 +402,7 @@ void mbs_task_rxDequeue(void const* argument)
 	mbsUart_t* mbsu = (mbsUart_t*)argument;
 
 	// Initially enable receiver for the 1st address byte, no rx timeout
-	mbg_EnableReceiver(mbsu->mbg.handle,
-			&mbsu->mbg.rxQ.frames[mbsu->mbg.rxQ.framesIndex].addr, 1, 0);
+	mbs_uartRxTimeoutRoutine(mbsu->mbg.handle);
 
 	osEvent retEvent;
 	mbgExCode_t exCode;
