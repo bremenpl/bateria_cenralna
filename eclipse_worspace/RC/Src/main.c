@@ -46,6 +46,7 @@
 #include "cmsis_os.h"
 #include "dma.h"
 #include "i2c.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -97,6 +98,7 @@ int main(void)
   MX_DMA_Init();
   MX_I2C1_Init();
   MX_USART1_UART_Init();
+  MX_TIM6_Init();
 
   /* USER CODE BEGIN 2 */
 
@@ -127,13 +129,14 @@ int main(void)
 	if (address_Init(&mbsu.slaveAddr, &sa, 10))
 		while(1); // bad address
 
-	//mbsu.slaveAddr = 5;
-
 	// set uart handle
 	mbsu.mbg.handle = &huart1;
 
-	// set number of frames in the slave receiver queue
-	mbsu.mbg.rxQ.framesBufLen = 2;
+	// timeout timer
+	mbsu.mbg.rxQ.toutTim = &htim6;
+
+	// timeout time
+	mbsu.mbg.rxQ.T35 = 3.5f;
 
 	mbs_Init(&mbsu, 1);
 	mbsHandler_Init();

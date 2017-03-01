@@ -24,8 +24,12 @@ static uint32_t mbs_slavesNr;
 /* Fuction prototypes --------------------------------------------------------*/
 
 HAL_StatusTypeDef mbs_SendErrorResponse(mbgUart_t* uart, mbgFrame_t* mf, mbgExCode_t exCode);
-mbsUart_t* mbs_GetModuleFromUartHandle(UART_HandleTypeDef* uart);
-mbsUart_t* mbs_GetModuleFromTimerHandle(TIM_HandleTypeDef* timer);
+mbsUart_t* mbs_GetModuleFromUart(UART_HandleTypeDef* uart);
+mbsUart_t* mbs_GetModuleFromTimer(TIM_HandleTypeDef* timer);
+mbsUart_t* mbs_GetModuleFromMbg(mbgUart_t* mbg);
+void mbs_digForFrames(mbsUart_t* m, uint8_t byte);
+void mbs_rxFrameHandle(mbsUart_t* const mbsu);
+void mbs_taskRxDequeue(void const* argument);
 
 /* Function declarations -----------------------------------------------------*/
 
@@ -47,7 +51,7 @@ HAL_StatusTypeDef mbs_Init(mbsUart_t* mbsu, size_t noOfModules)
 	osMessageQDef_t msgDef_temp;
 
 	// threads definitions
-	osThreadDef(mbgRxTask, mbg_taskRxDequeue, osPriorityAboveNormal, noOfModules, 128);
+	osThreadDef(mbgRxTask, mbs_taskRxDequeue, osPriorityAboveNormal, noOfModules, 128);
 
 	// do everything for each module
 	for (size_t i = 0; i < noOfModules; i++)
@@ -97,10 +101,9 @@ HAL_StatusTypeDef mbs_Init(mbsUart_t* mbsu, size_t noOfModules)
  * @param	uart: handle
  * @return	modbus slave uart module pointer or zero.
  */
-mbsUart_t* mbs_GetModuleFromUartHandle(UART_HandleTypeDef* uart)
+mbsUart_t* mbs_GetModuleFromUart(UART_HandleTypeDef* uart)
 {
-	if (!uart)
-		return 0;
+	assert_param(uart);
 
 	for (size_t i = 0; i < mbs_slavesNr; i++)
 	{
@@ -117,14 +120,32 @@ mbsUart_t* mbs_GetModuleFromUartHandle(UART_HandleTypeDef* uart)
  * @param	timer: handle
  * @return	modbus slave timer module pointer or zero.
  */
-mbsUart_t* mbs_GetModuleFromTimerHandle(TIM_HandleTypeDef* timer)
+mbsUart_t* mbs_GetModuleFromTimer(TIM_HandleTypeDef* timer)
 {
-	if (!timer)
-		return 0;
+	assert_param(timer);
 
 	for (size_t i = 0; i < mbs_slavesNr; i++)
 	{
 		if (timer == mbs_u[i]->mbg.rxQ.toutTim)
+			return mbs_u[i];
+	}
+
+	return 0;
+}
+
+/*
+ * @brief	If \ref mbg is found in one of the slave structs, the slave struct
+ * 			in which it was found is returned. Otherwised zero is returned.
+ * @param	timer: handle
+ * @return	modbus generic module pointer or zero.
+ */
+mbsUart_t* mbs_GetModuleFromMbg(mbgUart_t* mbg)
+{
+	assert_param(mbg);
+
+	for (size_t i = 0; i < mbs_slavesNr; i++)
+	{
+		if (mbg == &mbs_u[i]->mbg)
 			return mbs_u[i];
 	}
 
@@ -160,20 +181,162 @@ HAL_StatusTypeDef mbs_SendErrorResponse(mbgUart_t* uart, mbgFrame_t* mf, mbgExCo
 }
 
 /*
- * @brief	ModBus SLAVE strong override function.
- * 			Use it to parse REQUESTS from the master device.
- * 			Return if \ref uHandle does not match configured periph.
- * @param	uHandle: pointer to the uart modbus slave struct.
+ * @brief	Rx dequeue task. Raw bytes received by slave are examined here.
+ * @param	argument: Pass mbg pointer struct here.
  */
-void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle)
+void mbs_taskRxDequeue(void const* argument)
 {
-	assert_param(uHandle);
+	mbsUart_t* m = mbs_GetModuleFromMbg((mbgUart_t*)argument);
+	osEvent retEvent;
 
-	// check if handle is known
-	mbsUart_t* mbs = mbs_GetModuleFromUartHandle(uHandle);
+	while (1)
+	{
+		retEvent = osMessageGet(m->mbg.rxQ.msgQId, osWaitForever);
 
-	if (mbs)
-		mbg_ByteReceived(&mbs->mbg);
+		if (retEvent.status == osEventMessage)
+			mbs_digForFrames(m, (uint8_t)retEvent.value.v);
+	}
+}
+
+/*
+ * @brief	Run this function each time new byte arrives. It examines each byte (while
+ * 			remembering the state) and takes actions if the frame is complete. this
+ * 			function should not be run inside an interrupt.
+ */
+void mbs_digForFrames(mbsUart_t* m, uint8_t byte)
+{
+	assert_param(m);
+	assert_param(!mbg_inHandlerMode());
+
+	// enter state machine and comlete the modbus request frame
+	switch (m->mbg.rxState)
+	{
+		case e_mbgRxState_addr: // Obtained slave address, check either it matches
+		{
+			m->mbg.rxFrame.addr = byte;
+
+			// request adressed to me, get the function code,
+			// otherwise wait for timeout
+			m->mbg.rxState = ((byte == m->slaveAddr) || !byte) ?
+					e_mbgRxState_funcCode : e_mbgRxState_waitForTout;
+			break;
+		}
+
+		case e_mbgRxState_funcCode: // obtained function code
+		{
+			m->mbg.rxFrame.code = byte;
+			m->mbg.rxState = e_mbgRxState_data;
+			break;
+		}
+
+		case e_mbgRxState_data: // received the data (length/ registers)
+		{
+			switch (m->mbg.rxFrame.code)
+			{
+				case e_mbFuncCode_WriteSingleCoil:
+				case e_mbFuncCode_WriteSingleRegister:
+				case e_mbFuncCode_ReadCoils:
+				case e_mbFuncCode_ReadHoldingRegisters:
+				{
+					m->mbg.rxFrame.data[m->mbg.rxFrame.dataLen++] = byte;
+
+					if (m->mbg.rxFrame.dataLen >= 4) // gather 4 bytes
+						m->mbg.rxState = e_mbgRxState_crcHi;
+					break;
+				}
+
+				default:
+				{
+					// unhandled code, wait for timeout
+					m->mbg.rxState = e_mbgRxState_waitForTout;
+				}
+			}
+			break;
+		}
+
+		case e_mbgRxState_crcHi: // CRC HI
+		{
+			m->mbg.rxFrame.crc = (uint16_t)byte << 8;
+			m->mbg.rxState = e_mbgRxState_crcLo;
+			break;
+		}
+
+		case e_mbgRxState_crcLo: // CRC LO
+		{
+			m->mbg.rxFrame.crc |= byte;
+
+			// handle the frame
+			mbs_rxFrameHandle(m);
+			break;
+		}
+
+		case e_mbgRxState_waitForTout:
+		default:
+		{
+			// Do nothing, wait for timeout to reset the receiver
+		}
+	}
+
+}
+
+/*
+ * @brief	Handles the received frame.
+ * @brief	mf: received frame
+ */
+void mbs_rxFrameHandle(mbsUart_t* const mbsu)
+{
+	assert_param(mbsu);
+	mbgExCode_t exCode;
+	mbgFrame_t* const mf = &mbsu->mbg.rxFrame;
+
+	// disable receiving
+	mbg_DisableReceiver(&mbsu->mbg);
+
+	// validate crc
+	if (!mbg_CheckCrc(mf, 0))
+	{
+		// crc OK, proceed. Check function code
+		switch (mf->code)
+		{
+			case e_mbFuncCode_ReadCoils:
+			{
+				exCode = mbs_CheckReadCoils(mf);
+				break;
+			}
+
+			case e_mbFuncCode_ReadHoldingRegisters:
+			{
+				exCode = mbs_CheckReadHoldingRegisters(mbsu, mf);
+				break;
+			}
+
+			case e_mbFuncCode_WriteSingleCoil:
+			{
+				exCode = mbs_CheckWriteSingleCoil(mf);
+				break;
+			}
+
+			// for unknown function ILLEGAL FUNCTION error answer code
+			// has to be sent
+			default: exCode = e_mbsExCode_illegalFunction;
+		}
+
+		if (mf->addr) // send response only if not broadcast
+		{
+			// if exception code set, send error response
+			if (exCode)
+				mbs_SendErrorResponse(&mbsu->mbg, mf, exCode);
+
+			// otherwise standard response.
+			// Override func has to fill mf with data.
+			else
+				mbg_SendFrame(&mbsu->mbg, mf);
+		}
+		else
+			mbg_RxTimeout(&mbsu->mbg); // reset receiver
+	}
+	else // bad crc, wait for timeout
+		mbg_RxTimeout(&mbsu->mbg); // reset receiver
 }
 
 /*
@@ -185,7 +348,41 @@ void mbs_uartRxTimeoutRoutine(TIM_HandleTypeDef* tim)
 	assert_param(tim);
 
 	// check if handle is known
-	mbsUart_t* mbs = mbs_GetModuleFromTimerHandle(tim);
+	mbsUart_t* mbs = mbs_GetModuleFromTimer(tim);
+
+	if (mbs)
+		mbg_RxTimeout(&mbs->mbg);
+}
+
+/*
+ * @brief	ModBus SLAVE strong override function.
+ * 			Use it to parse REQUESTS from the master device.
+ * 			Return if \ref uHandle does not match configured periph.
+ * @param	uHandle: pointer to the uart modbus slave struct.
+ */
+void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle)
+{
+	assert_param(uHandle);
+
+	// check if handle is known
+	mbsUart_t* mbs = mbs_GetModuleFromUart(uHandle);
+
+	if (mbs)
+		mbg_ByteReceived(&mbs->mbg);
+}
+
+/*
+ * @brief	ModBus SLAVE strong override function.
+ * 			Use it to take actions after response has been sent.
+ * 			Return if \ref uHandle does not match configured periph.
+ * @param	uHandle: pointer to the uart modbus slave struct.
+ */
+void mbs_uartTxRoutine(UART_HandleTypeDef* uHandle)
+{
+	assert_param(uHandle);
+
+	// check if handle is known
+	mbsUart_t* mbs = mbs_GetModuleFromUart(uHandle);
 
 	if (mbs)
 		mbg_RxTimeout(&mbs->mbg);

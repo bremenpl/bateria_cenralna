@@ -31,7 +31,6 @@ HAL_StatusTypeDef mbg_CalcRxTimeout(UART_HandleTypeDef* uart,
 HAL_StatusTypeDef mbg_ResetRxTimer(mbgUart_t* uart);
 HAL_StatusTypeDef mbg_DisableRxTimer(mbgUart_t* uart);
 HAL_StatusTypeDef mbg_EnableReceiver(mbgUart_t* uart);
-HAL_StatusTypeDef mbg_DisableReceiver(mbgUart_t* uart);
 
 
 /* Function declarations -----------------------------------------------------*/
@@ -112,6 +111,7 @@ HAL_StatusTypeDef mbg_CheckCrc(const mbgFrame_t* const mf, uint16_t* crc)
 
 	// Calculate crc
 	uint16_t calcCrc = mbg_CalculateCrc(buf, i);
+	calcCrc = (calcCrc >> 8) | (calcCrc << 8); // flip
 
 	// save calculated crc
 	if (crc)
@@ -144,6 +144,7 @@ HAL_StatusTypeDef mbg_UartInit(mbgUart_t* uart)
 	// trigger out the init interrupt, enable receiver
 	retVal += mbg_ResetRxTimer(uart);
 	retVal += mbg_DisableRxTimer(uart);
+	retVal += mbg_DisableReceiver(uart);
 	retVal += mbg_EnableReceiver(uart);
 
 	return retVal;
@@ -183,34 +184,14 @@ HAL_StatusTypeDef mbg_RxTimeout(mbgUart_t* uart)
 
 	// turn off the timer
 	retVal += mbg_DisableRxTimer(uart);
+	retVal += mbg_DisableReceiver(uart);
+	retVal += mbg_EnableReceiver(uart);
 
 	// reset state
 	uart->rxState = e_mbgRxState_addr;
+	uart->rxFrame.dataLen = 0;
 
 	return HAL_OK;
-}
-
-/*
- * @brief	Rx dequeue task. Only raw data is handled here. The examination is done
- * 			in master or slave module. Slave/ Master module should use it in thread init.
- * @param	argument: Pass mbg pointer struct here.
- */
-void mbg_taskRxDequeue(void const* argument)
-{
-	mbgUart_t* mbg = (mbgUart_t*)argument;
-	osEvent retEvent;
-	mbgExCode_t exCode;
-	uint8_t rxByte;
-
-	while (1)
-	{
-		retEvent = osMessageGet(mbg->rxQ.msgQId, osWaitForever);
-
-		if (retEvent.status == osEventMessage)
-		{
-			rxByte = retEvent.value.v;
-		}
-	}
 }
 
 /*
@@ -289,10 +270,7 @@ HAL_StatusTypeDef mbg_SendData(mbgUart_t* uart)
 	while (mbg_CheckSendStatus(uart->handle))
 		osDelay(1);
 
-	// disable RX first
-	retVal += mbg_DisableReceiver(uart);
 	retVal += HAL_UART_Transmit_DMA(uart->handle, uart->txbuf, uart->len);
-
 	return retVal;
 }
 
@@ -429,11 +407,23 @@ HAL_StatusTypeDef mbg_DisableReceiver(mbgUart_t* uart)
 	assert_param(uart->handle);
 	HAL_StatusTypeDef retVal = HAL_OK;
 
+	// turn off rx timeout
+	retVal += mbg_DisableRxTimer(uart);
+
 	// disable receiving
 	CLEAR_BIT(uart->handle->Instance->CR1, USART_CR1_RE);
 	retVal += HAL_UART_AbortReceive(uart->handle);
 
 	return retVal;
+}
+
+/*
+ * @brief	Determine whether we are in thread mode or handler mode.
+ * @return	non zero if in handler mode
+ */
+int mbg_inHandlerMode()
+{
+	return (__get_IPSR() != 0);
 }
 
 /*

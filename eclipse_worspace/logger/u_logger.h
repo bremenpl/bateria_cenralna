@@ -22,7 +22,7 @@
 	#include "stm32f1xx_hal.h"
 	#include "stm32f1xx_hal_rtc.h"
 	#include "stm32f1xx_hal_uart.h"
-#elif defined(STM32F091xC) || defined(STM32F030x8)
+#elif defined(STM32F091xC) || defined(STM32F030x8) || defined(STM32F098xx)
 	#include "stm32f0xx_hal.h"
 	#include "stm32f0xx_hal_rtc.h"
 	#include "stm32f0xx_hal_uart.h"
@@ -56,7 +56,7 @@
 
 #if defined(STM32F103xB) || defined(STM32F105xC)
 	#define ID_ADDRESS						0x1FFFF7E8
-#elif defined(STM32F091xC)
+#elif defined(STM32F091xC) || defined(STM32F098xx)
 	#define ID_ADDRESS						0x1FFFF7AC
 #else
 	#define ID_ADDRESS						0x1FFF7A10

@@ -14,7 +14,7 @@
 /* Defines and macros --------------------------------------------------------*/
 #if defined(STM32F103xB) || defined(STM32F105xC)
 	#include "stm32f1xx_hal.h"
-#elif defined(STM32F091xC) || defined(STM32F030x8)
+#elif defined(STM32F091xC) || defined(STM32F030x8) || defined(STM32F098xx)
 	#include "stm32f0xx_hal.h"
 #else
 	#include "stm32f4xx_hal.h"

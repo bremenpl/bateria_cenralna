@@ -60,7 +60,10 @@ typedef enum
 	e_mbgRxState_funcCode,
 	e_mbgRxState_data,	// to get the length
 	e_mbgRxState_data2, // to get the bytes
-	e_mbgRxState_crc,
+	e_mbgRxState_crcHi, //
+	e_mbgRxState_crcLo,
+	e_mbgRxState_waitForTout,
+
 } mbgRxState_t;
 
 /*
@@ -120,6 +123,7 @@ typedef struct
 	} rxQ;
 
 	mbgRxState_t		rxState;				/*!< Current modbus receiver state */
+	mbgFrame_t			rxFrame;				/*!< receiver frame */
 
 } mbgUart_t;
 
@@ -135,9 +139,10 @@ HAL_StatusTypeDef mbg_UartInit(mbgUart_t* uart);
 HAL_StatusTypeDef mbg_CheckCrc(const mbgFrame_t* const mf, uint16_t* crc);
 HAL_StatusTypeDef mbg_SendFrame(mbgUart_t* uart, mbgFrame_t* mf);
 //void mbg_getUniqId(uint16_t* id);
-void mbg_taskRxDequeue(void const* argument);
 HAL_StatusTypeDef mbg_ByteReceived(mbgUart_t* uart);
 HAL_StatusTypeDef mbg_RxTimeout(mbgUart_t* uart);
+int mbg_inHandlerMode();
+HAL_StatusTypeDef mbg_DisableReceiver(mbgUart_t* uart);
 
 // overrides
 void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle);
