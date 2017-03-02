@@ -27,7 +27,7 @@ HAL_StatusTypeDef mbs_SendErrorResponse(mbgUart_t* uart, mbgFrame_t* mf, mbgExCo
 mbsUart_t* mbs_GetModuleFromUart(UART_HandleTypeDef* uart);
 mbsUart_t* mbs_GetModuleFromTimer(TIM_HandleTypeDef* timer);
 mbsUart_t* mbs_GetModuleFromMbg(mbgUart_t* mbg);
-void mbs_digForFrames(mbsUart_t* m, uint8_t byte);
+void mbs_digForFrames(mbsUart_t* m, const uint8_t byte);
 void mbs_rxFrameHandle(mbsUart_t* const mbsu);
 void mbs_taskRxDequeue(void const* argument);
 
@@ -186,6 +186,8 @@ HAL_StatusTypeDef mbs_SendErrorResponse(mbgUart_t* uart, mbgFrame_t* mf, mbgExCo
  */
 void mbs_taskRxDequeue(void const* argument)
 {
+	assert_param(argument);
+
 	mbsUart_t* m = mbs_GetModuleFromMbg((mbgUart_t*)argument);
 	osEvent retEvent;
 
@@ -203,7 +205,7 @@ void mbs_taskRxDequeue(void const* argument)
  * 			remembering the state) and takes actions if the frame is complete. this
  * 			function should not be run inside an interrupt.
  */
-void mbs_digForFrames(mbsUart_t* m, uint8_t byte)
+void mbs_digForFrames(mbsUart_t* m, const uint8_t byte)
 {
 	assert_param(m);
 	assert_param(!mbg_inHandlerMode());
@@ -316,8 +318,7 @@ void mbs_rxFrameHandle(mbsUart_t* const mbsu)
 				break;
 			}
 
-			// for unknown function ILLEGAL FUNCTION error answer code
-			// has to be sent
+			// for unknown function ILLEGAL FUNCTION error answer code has to be sent
 			default: exCode = e_mbsExCode_illegalFunction;
 		}
 
