@@ -189,8 +189,6 @@ HAL_StatusTypeDef mbg_RxTimeout(mbgUart_t* uart)
 
 	// reset state
 	uart->rxState = e_mbgRxState_addr;
-	uart->rxFrame.dataLen = 0;
-
 	return HAL_OK;
 }
 
@@ -260,6 +258,9 @@ HAL_StatusTypeDef mbg_SendFrame(mbgUart_t* uart, mbgFrame_t* mf)
 HAL_StatusTypeDef mbg_SendData(mbgUart_t* uart)
 {
 	assert_param(uart);
+
+	// disable receiving
+	mbg_DisableReceiver(uart);
 
 	if (!uart->len)
 		return HAL_OK; // nothing to send
@@ -355,6 +356,7 @@ HAL_StatusTypeDef mbg_ResetRxTimer(mbgUart_t* uart)
 	HAL_StatusTypeDef retVal = HAL_OK;
 
 	retVal += HAL_TIM_Base_Stop_IT(uart->rxQ.toutTim); // turn off
+	__HAL_TIM_CLEAR_IT(uart->rxQ.toutTim, TIM_IT_UPDATE);
 	uart->rxQ.toutTim->Instance->CNT = 0; // reset counter
 	retVal += HAL_TIM_Base_Start_IT(uart->rxQ.toutTim); // turn on
 
@@ -373,6 +375,7 @@ HAL_StatusTypeDef mbg_DisableRxTimer(mbgUart_t* uart)
 	HAL_StatusTypeDef retVal = HAL_OK;
 
 	retVal += HAL_TIM_Base_Stop_IT(uart->rxQ.toutTim); // turn off
+	__HAL_TIM_CLEAR_IT(uart->rxQ.toutTim, TIM_IT_UPDATE);
 	uart->rxQ.toutTim->Instance->CNT = 0; // reset counter
 
 	return retVal;

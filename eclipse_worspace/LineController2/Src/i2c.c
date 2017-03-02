@@ -103,6 +103,10 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* i2cHandle)
 
     /* Peripheral clock enable */
     __HAL_RCC_I2C1_CLK_ENABLE();
+
+    /* Peripheral interrupt init */
+    HAL_NVIC_SetPriority(I2C1_IRQn, 3, 0);
+    HAL_NVIC_EnableIRQ(I2C1_IRQn);
   /* USER CODE BEGIN I2C1_MspInit 1 */
 
   /* USER CODE END I2C1_MspInit 1 */
@@ -125,6 +129,9 @@ void HAL_I2C_MspDeInit(I2C_HandleTypeDef* i2cHandle)
     PB7     ------> I2C1_SDA 
     */
     HAL_GPIO_DeInit(GPIOB, GPIO_PIN_6|GPIO_PIN_7);
+
+    /* Peripheral interrupt Deinit*/
+    HAL_NVIC_DisableIRQ(I2C1_IRQn);
 
   }
   /* USER CODE BEGIN I2C1_MspDeInit 1 */

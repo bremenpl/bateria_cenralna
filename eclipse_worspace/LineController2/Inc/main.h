@@ -53,8 +53,8 @@
 
 #define nACFAIL_Pin GPIO_PIN_1
 #define nACFAIL_GPIO_Port GPIOA
-#define nLCMASTER_Pin GPIO_PIN_0
-#define nLCMASTER_GPIO_Port GPIOB
+#define nLcMaster_Pin GPIO_PIN_0
+#define nLcMaster_GPIO_Port GPIOB
 #define ACnDC_Pin GPIO_PIN_1
 #define ACnDC_GPIO_Port GPIOB
 #define ERROR_Pin GPIO_PIN_12

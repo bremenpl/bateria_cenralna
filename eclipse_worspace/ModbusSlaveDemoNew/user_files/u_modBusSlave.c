@@ -51,7 +51,7 @@ HAL_StatusTypeDef mbs_Init(mbsUart_t* mbsu, size_t noOfModules)
 	osMessageQDef_t msgDef_temp;
 
 	// threads definitions
-	osThreadDef(mbgRxTask, mbs_taskRxDequeue, osPriorityAboveNormal, noOfModules, 128);
+	osThreadDef(mbgRxTask, mbs_taskRxDequeue, osPriorityAboveNormal, noOfModules, 256);
 
 	// do everything for each module
 	for (size_t i = 0; i < noOfModules; i++)
@@ -216,6 +216,7 @@ void mbs_digForFrames(mbsUart_t* m, const uint8_t byte)
 		case e_mbgRxState_addr: // Obtained slave address, check either it matches
 		{
 			m->mbg.rxFrame.addr = byte;
+			m->mbg.rxFrame.dataLen = 0;
 
 			// request adressed to me, get the function code,
 			// otherwise wait for timeout
@@ -278,7 +279,6 @@ void mbs_digForFrames(mbsUart_t* m, const uint8_t byte)
 			// Do nothing, wait for timeout to reset the receiver
 		}
 	}
-
 }
 
 /*
@@ -297,6 +297,13 @@ void mbs_rxFrameHandle(mbsUart_t* const mbsu)
 	// validate crc
 	if (!mbg_CheckCrc(mf, 0))
 	{
+		// print the request
+		mf->msgType = e_mbgMesgType_Request;
+		mbg_uartPrintFrame(mf);
+
+		// now set to response
+		mf->msgType = e_mbgMesgType_Response;
+
 		// crc OK, proceed. Check function code
 		switch (mf->code)
 		{

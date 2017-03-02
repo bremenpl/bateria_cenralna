@@ -25,6 +25,12 @@ void lc_manageRcPresBits(lc_t* l, const uint32_t rcNr);
 
 void lc_pingTask(void const* argument);
 
+void lc_setLampsEnable(const bool val);
+bool lc_lampsEnabled();
+bool lc_master();
+void lc_AcOn(const bool val);
+HAL_StatusTypeDef lc_configAsMaster();
+
 /* Function declarations -----------------------------------------------------*/
 
 /*
@@ -60,8 +66,12 @@ HAL_StatusTypeDef lc_Init()
 			lc[i].rc[k].addr = k + 1;
 
 		// get unique ID
-		mbg_getUniqId(lc[i].uniqId);
+		address_getUniqId(lc[i].uniqId);
 	}
+
+	// default parameters
+	lc_setLampsEnable(true);
+	lc_AcOn(true);
 
 	return retVal;
 }
@@ -85,6 +95,7 @@ void lc_pingTask(void const* argument)
 		for (i = 0, addr = 1; i < LC_NO_OF_RCS; i++, addr++)
 		{
 			//log_PushLine(e_logLevel_Debug, "Ping ID= %02u", i);
+			HAL_GPIO_TogglePin(LC_ERROR_GPIO, LC_ERROR_PIN);
 
 			// try to ping next slave
 			lc_managePresence(&l->rc[i] ,lc_pingDevice(l, addr, &l->rc[i].status));
@@ -123,8 +134,7 @@ HAL_StatusTypeDef lc_pingDevice(lc_t* l, uint32_t addr, uint16_t* status)
 
 	// if frame was sent successful (or rather is being sent through DMA right now),
 	// await for the response in here for the timeout time
-	retEvent = osMessagePeek(l->msgQId_Ping, LC_PING_TIMEOUT);
-	HAL_GPIO_WritePin(LC_ERROR_GPIO, LC_ERROR_PIN, 0);
+	retEvent = osMessageGet(l->msgQId_Ping, LC_PING_TIMEOUT);
 
 	if (osEventMessage == retEvent.status)
 	{
@@ -134,14 +144,8 @@ HAL_StatusTypeDef lc_pingDevice(lc_t* l, uint32_t addr, uint16_t* status)
 		if (&l->mbm != resp->mbm)
 			return HAL_ERROR;
 
-		// debug
-		HAL_GPIO_WritePin(LC_ERROR_GPIO, LC_ERROR_PIN, 1);
-
 		// save status
 		*status = (resp->rcRespFrame.data[1] << 8) | (resp->rcRespFrame.data[2] >> 8);
-
-		// remove the message
-		osMessageGet(l->msgQId_Ping, LC_PING_TIMEOUT);
 		return HAL_OK;
 	}
 
@@ -354,6 +358,51 @@ void mbg_uartPrintFrame(const mbgFrame_t* const mf)
 	log_PushLine(e_logLevel_Debug, "%s: ADDR:0x%02X CODE:%02u DLEN:%02u DATA:%sCRC:0x%04X",
 			txtType, mf->addr, mf->code, mf->dataLen, databuf, mf->crc);
 }
+
+void lc_setLampsEnable(const bool val)
+{
+	HAL_GPIO_WritePin(LC_LAMPSEN_GPIO, LC_LAMPSEN_PIN, (GPIO_PinState)val);
+}
+
+bool lc_lampsEnabled()
+{
+	return (bool)HAL_GPIO_ReadPin(LC_LAMPSEN_GPIO, LC_LAMPSEN_PIN);
+}
+
+bool lc_master()
+{
+	return (bool)HAL_GPIO_ReadPin(LC_NLCMASTER_GPIO, LC_NLCMASTER_PIN);
+}
+
+HAL_StatusTypeDef lc_configAsMaster()
+{
+	return HAL_OK;
+}
+
+void lc_AcOn(const bool val)
+{
+	HAL_GPIO_WritePin(LC_ACNDC_GPIO, LC_ACNDC_PIN, (GPIO_PinState)val);
+}
+
+/*
+ * @brief	External interrupts handler, used for #ACFAIL notification
+ */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	if (GPIO_Pin == GPIO_PIN_1) // acfail
+	{
+		// do stuff
+	}
+}
+
+
+
+
+
+
+
+
+
 
 
 

@@ -56,6 +56,7 @@ const char* const dayOfWeekStrings[7] =
 void task_LogDequeue(void const* argument);
 static HAL_StatusTypeDef Calendar_SetDefaultDateAndTime();
 void System_ReadUniqueId(uint32_t* buffer);
+uint32_t System_ReadResetSource();
 
 /* Public function definitions -----------------------------------------------*/
 void Calendar_Init(RTC_HandleTypeDef* pRtc)
@@ -151,13 +152,16 @@ static HAL_StatusTypeDef Calendar_SetDefaultDateAndTime()
  * @param	uartHandle: Handler to an uart structure.
  * @param	printPlace: None, sd card or uart port.
  * @param	logLevel: Loging level
+ *
+ * @return	HAL_OK if all ok
  */
-void log_Init(UART_HandleTypeDef* uartHandle,
+HAL_StatusTypeDef log_Init(UART_HandleTypeDef* uartHandle,
 		uint32_t printPlace, logLevel_t logLevel, const firmware_t* firm)
 {
 	assert_param(uartHandle);
 	assert_param(firm);
 
+	HAL_StatusTypeDef retVal = HAL_OK;
 	p_logUartHandle = uartHandle;
 
 	osMessageQDef_t msgDef_LogLines;
@@ -165,15 +169,19 @@ void log_Init(UART_HandleTypeDef* uartHandle,
 	msgDef_LogLines.queue_sz = LOG_QUEUE_SIZE;
 	msgQId_LogLines = osMessageCreate(&msgDef_LogLines, NULL);
 
-	osMutexDef_t logMutexDef1;
-	log_CreateStringMutexId = osMutexCreate(&logMutexDef1);
+	if (!msgQId_LogLines)
+		retVal++;
 
-	osMutexDef_t logMutexDef2;
-	log_WriteSdMutexId = osMutexCreate(&logMutexDef2);
+	osMutexDef_t tempMutDef;
+	log_CreateStringMutexId = osMutexCreate(&tempMutDef);
+	log_WriteSdMutexId = osMutexCreate(&tempMutDef);
 
 	osThreadDef(logQueueTask, task_LogDequeue, osPriorityLow, 0, 512);
 	logQueueTaskHandle = osThreadCreate(osThread(logQueueTask), NULL);
+
 	assert_param(logQueueTaskHandle);
+	if (!logQueueTaskHandle)
+		retVal++;
 
 	logQueueInitialized = true;
 
@@ -206,6 +214,7 @@ void log_Init(UART_HandleTypeDef* uartHandle,
 	log_PushLine(e_logLevel_Info, "Build: (%s build) "
 			"log level %s(%u).",
 			build, logLevelStrings[log_globalLevel], log_globalLevel);
+	log_PushLine(e_logLevel_Info, "Reset source: 0x%X", System_ReadResetSource());
 	log_PushLine(e_logLevel_Info, "Firmware version: %u.%u.%u.%u",
 			firm->firm8[3], firm->firm8[2], firm->firm8[1], firm->firm8[0]);
 	log_PushLine(e_logLevel_Info, "Board unique device ID: 0x%X 0x%X 0x%X",
@@ -213,6 +222,8 @@ void log_Init(UART_HandleTypeDef* uartHandle,
 	log_PushLine(e_logLevel_Info, "Date: %s %02u.%02u.%02u. Time: %02u:%02u:%02u",
 			dayOfWeekStrings[date.WeekDay - 1], date.Date, date.Month, date.Year + 2000,
 			time.Hours, time.Minutes, time.Seconds);
+
+	return retVal;
 }
 
 /*
@@ -374,6 +385,37 @@ void System_ReadUniqueId(uint32_t* buffer)
 	buffer[2] = (*(__IO uint32_t*) (ID_ADDRESS + 8));
 
 	HAL_FLASH_Lock();
+}
+
+uint32_t System_ReadResetSource()
+{
+	uint32_t rs = 0;
+
+	// check all reset sources and add them:
+	if (__HAL_RCC_GET_FLAG(RCC_FLAG_LPWRRST))
+		rs |= e_resetSource_lowPower;
+
+	if (__HAL_RCC_GET_FLAG(RCC_FLAG_WWDGRST))
+		rs |= e_resetSource_windowWatchdog;
+
+	if (__HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST))
+		rs |= e_resetSource_indWatchdog;
+
+	if (__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST))
+		rs |= e_resetSource_softReset;
+
+	if (__HAL_RCC_GET_FLAG(RCC_FLAG_PORRST))
+		rs |= e_resetSource_porPdr;
+
+	if (__HAL_RCC_GET_FLAG(RCC_FLAG_PINRST))
+		rs |= e_resetSource_pinReset;
+
+#ifdef STM32F407xx
+	if (__HAL_RCC_GET_FLAG(RCC_FLAG_BORRST))
+		rs |= e_resetSource_bor;
+#endif
+
+	return rs;
 }
 
 // functions to be overwitten

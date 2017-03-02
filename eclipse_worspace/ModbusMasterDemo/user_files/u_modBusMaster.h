@@ -39,10 +39,15 @@ typedef struct
 
 /* Fuction prototypes --------------------------------------------------------*/
 HAL_StatusTypeDef mbm_Init(mbmUart_t* mbmu, size_t noOfModules);
+
 HAL_StatusTypeDef mbm_RequestReadHoldingRegs(mbmUart_t* mbmu,
 									  uint8_t slaveAddr,
 									  uint16_t startAddr,
 									  uint16_t nrOfRegs);
+HAL_StatusTypeDef mbm_RequestWriteSingleCoil(mbmUart_t* mbmu,
+									  uint8_t slaveAddr,
+									  uint16_t outputAddr,
+									  uint8_t state);
 
 void mbm_RespParseErrorSlaveAddr(uint8_t addr);
 void mbm_RespParseErrorFuncCode(mbgExCode_t code);

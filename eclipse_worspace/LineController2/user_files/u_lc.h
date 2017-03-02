@@ -12,6 +12,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "u_modBusMaster.h"
 #include "u_modBusSlave.h"
+#include "u_address.h"
 
 /* Defines and macros --------------------------------------------------------*/
 #define LC_MAX_PRINT_CHARS		90
@@ -20,13 +21,26 @@
 #define LC_NO_OF_RCS			20
 #define LC_NO_OF_PRES_REGS		((LC_NO_OF_RCS / 8) + 1)
 
-#define LC_PING_PERIOD			10
-#define LC_PING_TIMEOUT			400
-#define LC_RESP_QUEUE_TIMEOUT	500
-#define LC_PINGS_TILL_PRESENT	3
+#define LC_PING_PERIOD			200
+#define LC_PING_TIMEOUT			500
+#define LC_RESP_QUEUE_TIMEOUT	1000
+#define LC_PINGS_TILL_PRESENT	1
 
+// pinology
 #define LC_ERROR_GPIO			GPIOB
 #define LC_ERROR_PIN			GPIO_PIN_12
+
+#define LC_LAMPSEN_GPIO			GPIOB
+#define LC_LAMPSEN_PIN			GPIO_PIN_13
+
+#define LC_NLCMASTER_GPIO		GPIOB
+#define LC_NLCMASTER_PIN		GPIO_PIN_0
+
+#define LC_NACFAIL_GPIO			GPIOA
+#define LC_NACFAIL_PIN			GPIO_PIN_1
+
+#define LC_ACNDC_GPIO			GPIOB
+#define LC_ACNDC_PIN			GPIO_PIN_1
 
 /* Enums and structs ---------------------------------------------------------*/
 
@@ -70,8 +84,8 @@ typedef struct
  */
 typedef struct
 {
-	mbmUart_t		mbm;				/*!< mosbus master module */
-	mbsUart_t		mbs;				/*!< mosbus slave module */
+	mbmUart_t		mbm;				/*!< modbus master module */
+	mbsUart_t		mbs;				/*!< modbus slave module */
 
 	osThreadId 		sysId_Ping;			/*!< Pinging thread ID */
 	osMessageQId 	msgQId_Ping;		/*!< Msg queue for ack */

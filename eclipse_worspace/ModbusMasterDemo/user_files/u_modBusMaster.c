@@ -51,18 +51,18 @@ HAL_StatusTypeDef mbm_Init(mbmUart_t* mbmu, size_t noOfModules)
 	osMessageQDef_t msgDef_temp;
 
 	// threads definitions
-	osThreadDef(mbmRxTask, mbm_task_rxDequeue, osPriorityAboveNormal, noOfModules, 256);
+	osThreadDef(mbmRxTask, mbm_task_rxDequeue, osPriorityAboveNormal, noOfModules, 128);
 	osThreadDef(mbmRxTimTask, mbm_task_rxTimeout, osPriorityHigh, noOfModules, 128);
 
 	// do everything for each module
 	for (size_t i = 0; i < noOfModules; i++)
 	{
+		// Convenience
+		m = mbmu + i;
+
 		// check mbsu pointers
 		if (!(mbmu + i))
 			return HAL_ERROR;
-
-		// Convenience
-		m = mbmu + i;
 
 		// assign parameter variables
 		mbm_u[i] = m;
@@ -132,7 +132,7 @@ mbmUart_t* mbm_GetModuleFromUartHandle(UART_HandleTypeDef* uart)
 }
 
 /*
- * @brief	Read holding registers command request command.
+ * @brief	Read holding registers request command.
  * @param	slaveAddr: Slave to which the request is addressed to.
  * @param	startAddr: Address of the register the reading starts from.
  * @param	nrOfRegs: Number of 16 bit registers to read, starting from \ref startAddr.
@@ -146,6 +146,7 @@ HAL_StatusTypeDef mbm_RequestReadHoldingRegs(mbmUart_t* mbmu,
 	if (!nrOfRegs)
 		return HAL_OK; // nothing to read
 
+	assert_param(mbmu);
 	if(!mbmu)
 		return HAL_ERROR;
 
@@ -160,9 +161,53 @@ HAL_StatusTypeDef mbm_RequestReadHoldingRegs(mbmUart_t* mbmu,
 	mbmu->sendFrame.data[mbmu->sendFrame.dataLen++] = (uint8_t)(startAddr >> 8);
 	mbmu->sendFrame.data[mbmu->sendFrame.dataLen++] = (uint8_t)startAddr;
 
-	// quantity of registers HI and :P
+	// quantity of registers HI and LO
 	mbmu->sendFrame.data[mbmu->sendFrame.dataLen++] = (uint8_t)(nrOfRegs >> 8);
 	mbmu->sendFrame.data[mbmu->sendFrame.dataLen++] = (uint8_t)nrOfRegs;
+
+	// msg type for printing
+	mbmu->sendFrame.msgType = e_mbgMesgType_Request;
+
+	// send
+	if (mbg_SendFrame(&mbmu->mbg, &mbmu->sendFrame))
+	{
+		mbmu->sendFrame.addr = 0;
+		return HAL_ERROR;
+	}
+
+	return HAL_OK;
+}
+
+/*
+ * @brief	Write single coil request command.
+ * @param	slaveAddr: Slave to which the request is addressed to.
+ * @param	startAddr: Address of the register the reading starts from.
+ * @param	state: non zero sets the coil, 0 clears it
+ * @param	HAL_OK if request sent succesfully.
+ */
+HAL_StatusTypeDef mbm_RequestWriteSingleCoil(mbmUart_t* mbmu,
+									  uint8_t slaveAddr,
+									  uint16_t outputAddr,
+									  uint8_t state)
+{
+	assert_param(mbmu);
+	if(!mbmu)
+		return HAL_ERROR;
+
+	// set slave addr
+	mbmu->sendFrame.addr = slaveAddr;
+
+	// set function code
+	mbmu->sendFrame.code = e_mbFuncCode_WriteSingleCoil;
+
+	// starting address HI and LO
+	mbmu->sendFrame.dataLen = 0;
+	mbmu->sendFrame.data[mbmu->sendFrame.dataLen++] = (uint8_t)(outputAddr >> 8);
+	mbmu->sendFrame.data[mbmu->sendFrame.dataLen++] = (uint8_t)outputAddr;
+
+	// output value HI and LO
+	mbmu->sendFrame.data[mbmu->sendFrame.dataLen++] = state ? 0xFF : 0;
+	mbmu->sendFrame.data[mbmu->sendFrame.dataLen++] = 0;
 
 	// msg type for printing
 	mbmu->sendFrame.msgType = e_mbgMesgType_Request;
@@ -207,10 +252,14 @@ HAL_StatusTypeDef mbm_ExamineFuncCode(mbmUart_t* mbmu, uint8_t** data_p, uint32_
 			break;
 		}
 
-		/*case e_mbFuncCode_WriteMultipleRegisters:
+		case e_mbFuncCode_WriteSingleCoil:
 		{
+			*data_p = mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].data;
+			*len = 6; // output adde HI+LO, output val HI+LO, CRC
+			mbmu->mbg.rxQ.frames[mbmu->mbg.rxQ.framesIndex].dataLen = *len;
+			mbmu->mbg.rxState = e_mbsRxState_crc;
 			break;
-		}*/
+		}
 
 		default:
 		{

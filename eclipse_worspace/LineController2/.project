@@ -33,17 +33,17 @@
 		<link>
 			<name>mbg</name>
 			<type>2</type>
-			<location>M:/Github/bateria_cenralna/eclipse_worspace/common_libs</location>
+			<location>M:/Github/bateria_cenralna/eclipse_worspace/common2</location>
 		</link>
 		<link>
 			<name>mbm</name>
 			<type>2</type>
-			<location>M:/Github/bateria_cenralna/eclipse_worspace/ModbusMasterDemo/user_files</location>
+			<location>M:/Github/bateria_cenralna/eclipse_worspace/ModbusMasterDemoNew/user_files</location>
 		</link>
 		<link>
 			<name>mbs</name>
 			<type>2</type>
-			<location>M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemo/user_files</location>
+			<location>M:/Github/bateria_cenralna/eclipse_worspace/ModbusSlaveDemoNew/user_files</location>
 		</link>
 	</linkedResources>
 </projectDescription>

@@ -124,6 +124,7 @@ typedef struct
 
 	mbgRxState_t		rxState;				/*!< Current modbus receiver state */
 	mbgFrame_t			rxFrame;				/*!< receiver frame */
+	uint32_t			testCounter;
 
 } mbgUart_t;
 

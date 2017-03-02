@@ -53,7 +53,7 @@ HAL_StatusTypeDef mbm_Init(mbmUart_t* mbmu, size_t noOfModules)
 	osMessageQDef_t msgDef_temp;
 
 	// threads definitions
-	osThreadDef(mbmRxTask, mbm_task_rxDequeue, osPriorityAboveNormal, noOfModules, 128);
+	osThreadDef(mbmRxTask, mbm_task_rxDequeue, osPriorityAboveNormal, noOfModules, 256);
 	osThreadDef(mbmRxTimTask, mbm_task_rxTimeout, osPriorityHigh, noOfModules, 128);
 
 	// do everything for each module

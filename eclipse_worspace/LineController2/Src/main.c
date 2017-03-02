@@ -48,6 +48,7 @@
 #include "dma.h"
 #include "i2c.h"
 #include "rtc.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -105,6 +106,8 @@ int main(void)
   MX_USART2_UART_Init();
   MX_I2C1_Init();
   MX_USART3_UART_Init();
+  MX_TIM6_Init();
+  MX_TIM7_Init();
 
   /* USER CODE BEGIN 2 */
 
@@ -116,10 +119,11 @@ int main(void)
 
     // MASTER
     // response timeout in ms
-    lc[0].mbm.toutQ.respTimeout = 2000;
+    lc[0].mbm.toutQ.timeout_ms = 200;
 
-    // set number of frames in the master receiver queue
-    lc[0].mbm.mbg.rxQ.framesBufLen = 2;
+    // modbus rx timer and char time
+    lc[0].mbm.mbg.rxQ.toutTim = &htim6;
+    lc[0].mbm.mbg.rxQ.T35 = 3.5f;
 
     // set uart handle
     lc[0].mbm.mbg.handle = &huart2;
@@ -157,11 +161,12 @@ int main(void)
 		while(1); // bad address
 	}
 
-    // set number of frames in the slave receiver queue
-    lc[0].mbs.mbg.rxQ.framesBufLen = 2;
-
     // set uart handle
     lc[0].mbs.mbg.handle = &huart1;
+
+    // modbus rx timer and char time
+    lc[0].mbs.mbg.rxQ.toutTim = &htim7;
+    lc[0].mbs.mbg.rxQ.T35 = 3.5f;
 
     mbs_Init(&lc[0].mbs, LC_NO_OF_MODULES);
 
