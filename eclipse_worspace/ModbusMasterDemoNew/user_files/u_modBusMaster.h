@@ -16,14 +16,16 @@
 /* Defines and macros --------------------------------------------------------*/
 
 #define MBS_MAX_NO_OF_MASTERS	2
-#define MBM_RCV_QUEUE_SIZE		2
 
 /* Enums and structs ---------------------------------------------------------*/
 
 typedef struct
 {
 	mbgUart_t			mbg;				/*!< Generic modbus functions */
+
 	mbgFrame_t 			sendFrame;			/*!< Stores request data */
+	uint32_t			retrMax;			/*!< How many times try to get response */
+	uint32_t			retrMade;			/*!< How many tries were made already */
 
 	struct
 	{

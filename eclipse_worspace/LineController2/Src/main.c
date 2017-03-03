@@ -94,7 +94,8 @@ int main(void)
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
 
-  /* Configure the system clock */
+  /* Configure the system clock
+   *  */
   SystemClock_Config();
 
   /* Initialize all configured peripherals */
@@ -119,7 +120,7 @@ int main(void)
 
     // MASTER
     // response timeout in ms
-    lc[0].mbm.toutQ.timeout_ms = 200;
+    lc[0].mbm.toutQ.timeout_ms = 100;
 
     // modbus rx timer and char time
     lc[0].mbm.mbg.rxQ.toutTim = &htim6;

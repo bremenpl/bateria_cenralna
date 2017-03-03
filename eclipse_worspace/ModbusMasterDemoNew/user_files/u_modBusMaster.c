@@ -9,6 +9,7 @@
 /* Includes ------------------------------------------------------------------*/
 
 #include "u_modBusMaster.h"
+#include "u_logger.h"
 
 /* Defines and macros --------------------------------------------------------*/
 
@@ -32,6 +33,7 @@ void mbm_digForFrames(mbmUart_t* m, const uint8_t byte);
 void mbm_rxFrameHandle(mbmUart_t* const mbmu);
 HAL_StatusTypeDef mbm_RespTimeoutRestart(mbmUart_t* mbmu);
 HAL_StatusTypeDef mbm_RespTimeoutStop(mbmUart_t* mbmu);
+HAL_StatusTypeDef mbm_Resend(mbmUart_t* mbmu);
 
 /* Function declarations -----------------------------------------------------*/
 
@@ -54,7 +56,7 @@ HAL_StatusTypeDef mbm_Init(mbmUart_t* mbmu, size_t noOfModules)
 
 	// threads definitions
 	osThreadDef(mbmRxTask, mbm_task_rxDequeue, osPriorityAboveNormal, noOfModules, 256);
-	osThreadDef(mbmRxTimTask, mbm_task_rxTimeout, osPriorityHigh, noOfModules, 128);
+	osThreadDef(mbmRxTimTask, mbm_task_rxTimeout, osPriorityHigh, noOfModules, 256);
 
 	// do everything for each module
 	for (size_t i = 0; i < noOfModules; i++)
@@ -256,6 +258,16 @@ HAL_StatusTypeDef mbm_RequestWriteSingleCoil(mbmUart_t* mbmu,
 }
 
 /*
+ * @brief	Resends the last modbus request
+ */
+HAL_StatusTypeDef mbm_Resend(mbmUart_t* mbmu)
+{
+	assert_param(mbmu);
+
+
+}
+
+/*
  * @brief	Response timeout thread
  */
 void mbm_task_rxTimeout(void const* argument)
@@ -284,7 +296,13 @@ void mbm_task_rxTimeout(void const* argument)
 
 			// timeout occured
 			if (osEventTimeout == retEvent.status)
+			{
 				mbm_uartRxTimeoutRoutine(mbmu->mbg.rxQ.toutTim);
+
+				// add redo function?
+
+				log_PushLine(e_logLevel_Warning, "Rx timeout");
+			}
 
 			// timeout restart occured
 			else if (retEvent.status == osEventMessage)
@@ -334,10 +352,13 @@ void mbm_digForFrames(mbmUart_t* m, const uint8_t byte)
 		case e_mbgRxState_addr:
 		{
 			m->mbg.rxFrame.addr = byte;
+			m->mbg.rxFrame.dataLen = 0;
 
 			// check if there is a match with request addr
 			m->mbg.rxState = (byte == m->sendFrame.addr) ?
 					e_mbgRxState_funcCode : e_mbgRxState_waitForTout;
+
+			log_PushLine(e_logLevel_Debug, "Addr rcv");
 			break;
 		}
 
@@ -348,6 +369,7 @@ void mbm_digForFrames(mbmUart_t* m, const uint8_t byte)
 			// check match with sent func code
 			m->mbg.rxState = (byte == m->sendFrame.code) ?
 					e_mbgRxState_data : e_mbgRxState_waitForTout;
+			log_PushLine(e_logLevel_Debug, "Code rcv");
 			break;
 		}
 
@@ -362,6 +384,7 @@ void mbm_digForFrames(mbmUart_t* m, const uint8_t byte)
 
 					if (m->mbg.rxFrame.dataLen >= 4) // gather 4 bytes
 						m->mbg.rxState = e_mbgRxState_crcHi;
+
 					break;
 				}
 
@@ -380,6 +403,8 @@ void mbm_digForFrames(mbmUart_t* m, const uint8_t byte)
 					m->mbg.rxState = e_mbgRxState_waitForTout;
 				}
 			}
+
+			log_PushLine(e_logLevel_Debug, "Data rcv");
 			break;
 		}
 
@@ -402,6 +427,8 @@ void mbm_digForFrames(mbmUart_t* m, const uint8_t byte)
 					m->mbg.rxState = e_mbgRxState_waitForTout;
 				}
 			}
+
+			log_PushLine(e_logLevel_Debug, "Data2 rcv");
 			break;
 		}
 
@@ -409,12 +436,14 @@ void mbm_digForFrames(mbmUart_t* m, const uint8_t byte)
 		{
 			m->mbg.rxFrame.crc = (uint16_t)byte << 8;
 			m->mbg.rxState = e_mbgRxState_crcLo;
+			log_PushLine(e_logLevel_Debug, "CrcLo rcv");
 			break;
 		}
 
 		case e_mbgRxState_crcLo: // CRC LO
 		{
 			m->mbg.rxFrame.crc |= byte;
+			log_PushLine(e_logLevel_Debug, "CrcHi rcv");
 
 			// handle the frame
 			mbm_rxFrameHandle(m);
@@ -504,6 +533,9 @@ void mbm_uartRxRoutine(UART_HandleTypeDef* uHandle)
 
 	if (mbm)
 		mbg_ByteReceived(&mbm->mbg);
+
+	// TODO test
+	mbm_RespTimeoutRestart(mbm);
 }
 
 /*

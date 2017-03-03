@@ -267,13 +267,13 @@ void mbs_digForFrames(mbsUart_t* m, const uint8_t byte)
 		case e_mbgRxState_crcLo: // CRC LO
 		{
 			m->mbg.rxFrame.crc |= byte;
-
-			// handle the frame
+			//m->mbg.rxState = e_mbgRxState_waitForToutRdyFrame;
 			mbs_rxFrameHandle(m);
 			break;
 		}
 
 		case e_mbgRxState_waitForTout:
+		case e_mbgRxState_waitForToutRdyFrame:
 		default:
 		{
 			// Do nothing, wait for timeout to reset the receiver
@@ -293,6 +293,9 @@ void mbs_rxFrameHandle(mbsUart_t* const mbsu)
 
 	// disable receiving
 	mbg_DisableReceiver(&mbsu->mbg);
+
+	// delay the response as the T3.5 timeout would
+	osDelay(mbsu->mbg.mbTimeout_ms);
 
 	// validate crc
 	if (!mbg_CheckCrc(mf, 0))

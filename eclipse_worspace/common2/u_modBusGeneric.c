@@ -25,9 +25,7 @@
 uint16_t mbg_CalculateCrc(uint8_t* data, size_t len);
 HAL_StatusTypeDef mbg_CheckSendStatus(UART_HandleTypeDef* uHandle);
 HAL_StatusTypeDef mbg_SendData(mbgUart_t* uart);
-HAL_StatusTypeDef mbg_CalcRxTimeout(UART_HandleTypeDef* uart,
-									TIM_HandleTypeDef* tim,
-									float T_35);
+HAL_StatusTypeDef mbg_CalcRxTimeout(mbgUart_t* mbg);
 HAL_StatusTypeDef mbg_ResetRxTimer(mbgUart_t* uart);
 HAL_StatusTypeDef mbg_DisableRxTimer(mbgUart_t* uart);
 HAL_StatusTypeDef mbg_EnableReceiver(mbgUart_t* uart);
@@ -139,7 +137,7 @@ HAL_StatusTypeDef mbg_UartInit(mbgUart_t* uart)
 	HAL_StatusTypeDef retVal = HAL_OK;
 
 	// Calculate Rx timeout timer overflow value
-	retVal += mbg_CalcRxTimeout(uart->handle, uart->rxQ.toutTim, uart->rxQ.T35);
+	retVal += mbg_CalcRxTimeout(uart);
 
 	// trigger out the init interrupt, enable receiver
 	retVal += mbg_ResetRxTimer(uart);
@@ -279,32 +277,32 @@ HAL_StatusTypeDef mbg_SendData(mbgUart_t* uart)
  * @brief	Calculates the \ref tim period and prescaller (taking under
  * 			consideration \ref uart parameters) in a way that a timer interrupt
  * 			will be triggered if the time of \ref signTenParts will pass.
- * @param	uart: uart struct for which timeout is configured.
- * @param	tim: 16 bit timeout timer handle struct.
- * @param	T35: signs for timeout, 3.5 in default
+ * @param	mbg: generic struct pointer
  */
-HAL_StatusTypeDef mbg_CalcRxTimeout(UART_HandleTypeDef* uart,
-									TIM_HandleTypeDef* tim,
-									float T35)
+HAL_StatusTypeDef mbg_CalcRxTimeout(mbgUart_t* mbg)
 {
-	assert_param(tim);
-	assert_param(uart);
-	assert_param(T35 != 0); // cant be 0
+	assert_param(mbg);
+	assert_param(mbg->rxQ.toutTim);
+	assert_param(mbg->handle);
+	assert_param(mbg->rxQ.T35 != 0); // cant be 0
 
 	HAL_StatusTypeDef retVal = HAL_OK;
 	float F_mcu = HAL_RCC_GetHCLKFreq();
-	float baud = uart->Init.BaudRate;
+	float baud = mbg->handle->Init.BaudRate;
 	float bits = 10; // 8 data bits + 1 start bit + 1 stop bit
 
 	// find out if need to extend bits
-	if (uart->Init.Parity != UART_PARITY_NONE)
+	if (mbg->handle->Init.Parity != UART_PARITY_NONE)
 		bits++;
 
-	if (uart->Init.StopBits == UART_STOPBITS_2)
+	if (mbg->handle->Init.StopBits == UART_STOPBITS_2)
 		bits++;
 
 	float bytesPerSec = baud / bits;
-	float F_mod = bytesPerSec / T35;
+	float F_mod = bytesPerSec / mbg->rxQ.T35;
+
+	// calculate timeout [ms] for delaying slave responses
+	mbg->mbTimeout_ms = (1.0f / F_mod) * (1000 / portTICK_RATE_MS) + 1; // +1 to round up
 
 	// now find proper prescaller and period for \ref tim
 	uint16_t period[0xFF];
@@ -336,9 +334,9 @@ HAL_StatusTypeDef mbg_CalcRxTimeout(UART_HandleTypeDef* uart,
 	}
 
 	// assign calculated period and prescaller to the timer
-	tim->Init.Prescaler = finalPrescaler;
-	tim->Init.Period = finalPeriod;
-	retVal += HAL_TIM_Base_Init(tim);
+	mbg->rxQ.toutTim->Init.Prescaler = finalPrescaler;
+	mbg->rxQ.toutTim->Init.Period = finalPeriod;
+	retVal += HAL_TIM_Base_Init(mbg->rxQ.toutTim);
 
 	assert_param(!retVal);
 	return retVal;

@@ -87,24 +87,21 @@ void lc_pingTask(void const* argument)
 	// get the pointer
 	lc_t* l = (lc_t*)argument;
 	uint32_t i, addr;
-	portTickType xLastWakeTime = xTaskGetTickCount();
+	//portTickType xLastWakeTime = xTaskGetTickCount();
 
 	while (1)
 	{
 		// ping loop
 		for (i = 0, addr = 1; i < LC_NO_OF_RCS; i++, addr++)
 		{
-			//log_PushLine(e_logLevel_Debug, "Ping ID= %02u", i);
-			HAL_GPIO_TogglePin(LC_ERROR_GPIO, LC_ERROR_PIN);
+			//vTaskDelayUntil( &xLastWakeTime, (LC_PING_PERIOD / portTICK_RATE_MS));
+			osDelay(LC_PING_PERIOD);
 
 			// try to ping next slave
 			lc_managePresence(&l->rc[i] ,lc_pingDevice(l, addr, &l->rc[i].status));
 
 			// maintain presence table for the master PC
 			lc_manageRcPresBits(l, i);
-
-			// so the intervals between pings are const
-			vTaskDelayUntil( &xLastWakeTime, (LC_PING_PERIOD / portTICK_RATE_MS));
 		}
 	}
 }
@@ -134,7 +131,7 @@ HAL_StatusTypeDef lc_pingDevice(lc_t* l, uint32_t addr, uint16_t* status)
 
 	// if frame was sent successful (or rather is being sent through DMA right now),
 	// await for the response in here for the timeout time
-	retEvent = osMessageGet(l->msgQId_Ping, LC_PING_TIMEOUT);
+	retEvent = osMessageGet(l->msgQId_Ping, LC_PING_TIMEOUT); // TODO zmienic timeout
 
 	if (osEventMessage == retEvent.status)
 	{
@@ -143,6 +140,8 @@ HAL_StatusTypeDef lc_pingDevice(lc_t* l, uint32_t addr, uint16_t* status)
 		// check if this is proper master
 		if (&l->mbm != resp->mbm)
 			return HAL_ERROR;
+
+		HAL_GPIO_TogglePin(LC_ERROR_GPIO, LC_ERROR_PIN);
 
 		// save status
 		*status = (resp->rcRespFrame.data[1] << 8) | (resp->rcRespFrame.data[2] >> 8);
@@ -323,6 +322,12 @@ mbgExCode_t mbs_CheckReadHoldingRegisters(const mbsUart_t* const mbs, mbgFrame_t
 	}
 
 	return retVal;
+}
+
+void mbm_RespCrcMatchError(uint16_t rcvCrc, uint16_t calcCrc)
+{
+	log_PushLine(e_logLevel_Critical, "Response crc error (0x%X), calc 0x%X",
+			rcvCrc, calcCrc);
 }
 
 /*

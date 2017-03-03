@@ -63,6 +63,7 @@ typedef enum
 	e_mbgRxState_crcHi, //
 	e_mbgRxState_crcLo,
 	e_mbgRxState_waitForTout,
+	e_mbgRxState_waitForToutRdyFrame,
 
 } mbgRxState_t;
 
@@ -124,7 +125,7 @@ typedef struct
 
 	mbgRxState_t		rxState;				/*!< Current modbus receiver state */
 	mbgFrame_t			rxFrame;				/*!< receiver frame */
-	uint32_t			testCounter;
+	uint32_t			mbTimeout_ms;			/*!< T3.5 timeout expressed in ms */
 
 } mbgUart_t;
 
