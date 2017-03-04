@@ -74,6 +74,9 @@ HAL_StatusTypeDef mbm_Init(mbmUart_t* mbmu, size_t noOfModules)
 		// init the generic uart module
 		retVal += mbg_UartInit(&m->mbg);
 
+		// reinitialize master timeout
+		m->toutQ.timeout_ms = m->mbg.mbTimeout_ms * 4;
+
 		// create slave responses reception queue.
 		msgDef_temp.item_sz = sizeof(uint32_t);
 		msgDef_temp.queue_sz = MBG_RECV_QUEUE_LEN;
@@ -512,7 +515,7 @@ void mbm_uartRxTimeoutRoutine(TIM_HandleTypeDef* tim)
 	mbmUart_t* mbm = mbm_GetModuleFromTimer(tim);
 
 	// allow user to handle the timeout
-	mbm_RespRxTimeoutError(mbm->mbg.rxState, &mbm->mbg.rxFrame);
+	mbm_RespRxTimeoutError(mbm);
 
 	if (mbm)
 		mbg_RxTimeout(&mbm->mbg);
@@ -532,10 +535,10 @@ void mbm_uartRxRoutine(UART_HandleTypeDef* uHandle)
 	mbmUart_t* mbm = mbm_GetModuleFromUart(uHandle);
 
 	if (mbm)
+	{
 		mbg_ByteReceived(&mbm->mbg);
-
-	// TODO test
-	mbm_RespTimeoutRestart(mbm);
+		mbm_RespTimeoutRestart(mbm);
+	}
 }
 
 /*
@@ -623,11 +626,9 @@ __attribute__((weak)) void mbm_RespParseError() { }
 /*
  * @brief	Function is called during parsing response from slave whenever rx timeout
  * 			occurs.
- * @param	state: machine state of the response parser when rx timeout occured.
- * @param	mf: pointer to the gathered modbus frame
+ * @param	mbm: master struct
  */
-__attribute__((weak)) void mbm_RespRxTimeoutError(mbgRxState_t state,
-												  const mbgFrame_t* const mf) { }
+__attribute__((weak)) void mbm_RespRxTimeoutError(mbmUart_t* const mbm) { }
 
 /*
  * @brief	Function is called when the response frame crc doesnt match the calculated one.

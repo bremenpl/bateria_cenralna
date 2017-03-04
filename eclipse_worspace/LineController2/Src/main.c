@@ -94,8 +94,7 @@ int main(void)
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
 
-  /* Configure the system clock
-   *  */
+  /* Configure the system clock */
   SystemClock_Config();
 
   /* Initialize all configured peripherals */
@@ -119,9 +118,6 @@ int main(void)
     // some application specific information
 
     // MASTER
-    // response timeout in ms
-    lc[0].mbm.toutQ.timeout_ms = 100;
-
     // modbus rx timer and char time
     lc[0].mbm.mbg.rxQ.toutTim = &htim6;
     lc[0].mbm.mbg.rxQ.T35 = 3.5f;
@@ -242,7 +238,7 @@ void SystemClock_Config(void)
                               |RCC_PERIPHCLK_USART2|RCC_PERIPHCLK_I2C1
                               |RCC_PERIPHCLK_RTC;
   PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK1;
-  PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_HSI;
+  PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
   PeriphClkInit.Usart3ClockSelection = RCC_USART3CLKSOURCE_PCLK1;
   PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_HSI;
   PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;

@@ -21,10 +21,9 @@
 #define LC_NO_OF_RCS			20
 #define LC_NO_OF_PRES_REGS		((LC_NO_OF_RCS / 8) + 1)
 
-#define LC_PING_PERIOD			100
 #define LC_PING_TIMEOUT			800
 #define LC_RESP_QUEUE_TIMEOUT	1000
-#define LC_PINGS_TILL_PRESENT	1
+#define LC_PINGS_TILL_PRESENT	3
 
 // pinology
 #define LC_ERROR_GPIO			GPIOB
@@ -76,6 +75,7 @@ typedef struct
 {
 	const mbmUart_t*	mbm;			/*!< Master module for which the response came */
 	mbgFrame_t			rcRespFrame;	/*!< Relay controller response frame */
+	bool				timeout;		/*!< set when timeout occurred */
 
 } mRespPack_t;
 
@@ -89,7 +89,7 @@ typedef struct
 
 	osThreadId 		sysId_Ping;			/*!< Pinging thread ID */
 	osMessageQId 	msgQId_Ping;		/*!< Msg queue for ack */
-	osMutexId		rcAccesMut;			/*!< Relay controller access mutex */
+	osSemaphoreId	rcAccesSem;			/*!< RC access semaphore */
 	mRespPack_t		rcResp;				/*!< Relay controller response buffer (1 item) */
 
 	rc_t			rc[LC_NO_OF_RCS];	/*!< Relay controllers */

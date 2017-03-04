@@ -24,8 +24,7 @@ typedef struct
 	mbgUart_t			mbg;				/*!< Generic modbus functions */
 
 	mbgFrame_t 			sendFrame;			/*!< Stores request data */
-	uint32_t			retrMax;			/*!< How many times try to get response */
-	uint32_t			retrMade;			/*!< How many tries were made already */
+	uint32_t 			delegate;			/*!< true when send frame was a delegate to RC */
 
 	struct
 	{
@@ -57,7 +56,7 @@ void mbm_RespParseErrorSlaveAddr(uint8_t addr);
 void mbm_RespParseErrorFuncCode(mbgExCode_t code);
 void mbm_RespParseErrorData(const uint8_t* const data, uint16_t len);
 void mbm_RespParseError();
-void mbm_RespRxTimeoutError(mbgRxState_t state, const mbgFrame_t* const mf);
+void mbm_RespRxTimeoutError(mbmUart_t* const mbm);
 void mbm_RespCrcMatchError(uint16_t rcvCrc, uint16_t calcCrc);
 
 void mbm_CheckReadHoldingRegisters(const mbmUart_t* const mbm, const mbgFrame_t* const mf);

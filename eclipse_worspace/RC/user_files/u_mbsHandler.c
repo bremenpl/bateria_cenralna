@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "u_mbsHandler.h"
+#include "u_address.h"
 
 /* Defines and macros --------------------------------------------------------*/
 
@@ -54,14 +55,9 @@ void mbsHandler_Init()
 	rcSetting = rcRegMap.reg + e_rcRegMap_Setting;
 
 	// ID	0x02 - 0x07	R		96 bit (12 byte) unique device ID
-	// Apparently not all F0 devices own a unique device ID...
-	// https://community.st.com/thread/28751
-	// In this case one has to be assigned in the eeprom by the user
+	address_getUniqId(&rcRegMap.reg[e_rcRegMap_IdFirst]);
 	for (uint32_t i = e_rcRegMap_IdFirst; i <= e_rcRegMap_IdLast; i++)
-	{
 		rcRegMap.access[i] = e_rcAccessType_R;
-		rcRegMap.reg[i] = i; // TODO temp
-	}
 
 	rcUniqId = rcRegMap.reg + e_rcRegMap_IdFirst;
 

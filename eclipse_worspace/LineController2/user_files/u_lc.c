@@ -42,6 +42,7 @@ HAL_StatusTypeDef lc_Init()
 
 	// create RC response queue
 	osMessageQDef_t msgDef_temp;
+	osSemaphoreDef_t semDef_temp;
 	msgDef_temp.item_sz = sizeof(mRespPack_t*);
 	msgDef_temp.queue_sz = 1; // In a properly working modbus system 1 is enough
 
@@ -59,6 +60,11 @@ HAL_StatusTypeDef lc_Init()
 		// create thread for dequeuing
 		lc[i].sysId_Ping = osThreadCreate(osThread(pingTask), lc + i);
 		if (!lc[i].sysId_Ping)
+			retVal++;
+
+		// create RC access semaphore
+		lc[i].rcAccesSem = osSemaphoreCreate(&semDef_temp, 1);
+		if (!lc[i].rcAccesSem)
 			retVal++;
 
 		// assign addresses of RC, they are needed further in the code
@@ -87,15 +93,19 @@ void lc_pingTask(void const* argument)
 	// get the pointer
 	lc_t* l = (lc_t*)argument;
 	uint32_t i, addr;
-	//portTickType xLastWakeTime = xTaskGetTickCount();
+
+	osDelay(1000);
 
 	while (1)
 	{
 		// ping loop
 		for (i = 0, addr = 1; i < LC_NO_OF_RCS; i++, addr++)
 		{
-			//vTaskDelayUntil( &xLastWakeTime, (LC_PING_PERIOD / portTICK_RATE_MS));
-			osDelay(LC_PING_PERIOD);
+			osDelay(l->mbm.toutQ.timeout_ms);
+
+
+			// take RC access semaphore
+			osSemaphoreWait(l->rcAccesSem, osWaitForever);
 
 			// try to ping next slave
 			lc_managePresence(&l->rc[i] ,lc_pingDevice(l, addr, &l->rc[i].status));
@@ -129,9 +139,12 @@ HAL_StatusTypeDef lc_pingDevice(lc_t* l, uint32_t addr, uint16_t* status)
 	if (mbm_RequestReadHoldingRegs(&l->mbm, addr, e_rcRegMap_Status, 1))
 		return HAL_ERROR;
 
+	l->mbm.delegate = false;
+	HAL_GPIO_WritePin(LC_ERROR_GPIO, LC_ERROR_PIN, 0);
+
 	// if frame was sent successful (or rather is being sent through DMA right now),
 	// await for the response in here for the timeout time
-	retEvent = osMessageGet(l->msgQId_Ping, LC_PING_TIMEOUT); // TODO zmienic timeout
+	retEvent = osMessageGet(l->msgQId_Ping, LC_PING_TIMEOUT);
 
 	if (osEventMessage == retEvent.status)
 	{
@@ -141,7 +154,11 @@ HAL_StatusTypeDef lc_pingDevice(lc_t* l, uint32_t addr, uint16_t* status)
 		if (&l->mbm != resp->mbm)
 			return HAL_ERROR;
 
-		HAL_GPIO_TogglePin(LC_ERROR_GPIO, LC_ERROR_PIN);
+		// check if timeout
+		if (resp->timeout)
+			return HAL_ERROR;
+
+		HAL_GPIO_WritePin(LC_ERROR_GPIO, LC_ERROR_PIN, 1);
 
 		// save status
 		*status = (resp->rcRespFrame.data[1] << 8) | (resp->rcRespFrame.data[2] >> 8);
@@ -233,20 +250,40 @@ void mbm_CheckReadHoldingRegisters(const mbmUart_t* const mbm, const mbgFrame_t*
 	assert_param(mbm);
 	assert_param(mf);
 
-	//log_PushLine(e_logLevel_Info, "Read Holding registers response");
-
 	// enqueue the response, find the master
 	for (uint32_t i = 0; i < LC_NO_OF_MODULES; i++)
 	{
-		if (mbm == &lc[i].mbm)
+		if ((mbm == &lc[i].mbm) &&
+				(mbm->sendFrame.code == e_mbFuncCode_ReadHoldingRegisters))
 		{
+			// start address
+			uint16_t startAddr =
+					mbm->sendFrame.data[1] | ((uint16_t)mbm->sendFrame.data[0] << 8);
+
 			// copy data
 			lc[i].rcResp.mbm = mbm;
 			lc[i].rcResp.rcRespFrame = *mf;
+			lc[i].rcResp.timeout = false;
 
-			if (osOK != osMessagePut(lc[i].msgQId_Ping,
-					(uint32_t)&lc[i].rcResp, LC_RESP_QUEUE_TIMEOUT))
-				log_PushLine(e_logLevel_Warning, "Unable to enque the response");
+			// check if request to LC
+			if (!mbm->delegate)
+			{
+				// check if it was ping
+				if (startAddr == e_rcRegMap_Status)
+				{
+					if (osOK != osMessagePut(lc[i].msgQId_Ping,
+							(uint32_t)&lc[i].rcResp, LC_RESP_QUEUE_TIMEOUT))
+						log_PushLine(e_logLevel_Warning, "Unable to enque the response");
+				}
+
+			}
+
+			// otherwise delegate
+			else
+				mbg_SendFrame(&lc[i].mbs.mbg, &lc[i].rcResp.rcRespFrame);
+
+			// allow access to RC
+			osSemaphoreRelease(lc[i].rcAccesSem);
 		}
 	}
 }
@@ -256,19 +293,19 @@ mbgExCode_t mbs_CheckReadHoldingRegisters(const mbsUart_t* const mbs, mbgFrame_t
 	assert_param(mf);
 	mbgExCode_t retVal = e_mbsExCode_illegalDataAddr;
 	uint32_t k;
-	bool found = false;
+	lc_t* l = 0;
 
 	// find object
 	for (k = 0; k < LC_NO_OF_MODULES; k++)
 	{
 		if (mbs == &lc[k].mbs)
 		{
-			found = true;
+			l = &lc[k];
 			break;
 		}
 	}
 
-	if (!found)
+	if (!l)
 		return retVal;
 
 	// start address
@@ -282,43 +319,61 @@ mbgExCode_t mbs_CheckReadHoldingRegisters(const mbsUart_t* const mbs, mbgFrame_t
 	// update frame data length member
 	mf->dataLen = mf->data[0] + 1; // 1 for byte count
 
-	switch (startAddr)
+	// check if request for LC
+	if (startAddr <= 0xFF)
 	{
-		case e_rcRegMap_Status: // fixed presence status
+		switch (startAddr)
 		{
-			// check if registers to read are in range
-			if ((startAddr + nrOfRegs) > LC_NO_OF_PRES_REGS)
-				return e_mbsExCode_illegalDataAddr;
-
-			// register values
-			for (uint32_t addr = 0, i = 1; i < (mf->data[0] + 1); i += 2, addr++)
+			case e_rcRegMap_Status: // fixed presence status
 			{
-				mf->data[i] = (uint8_t)(lc[k].rcPresBits[addr] >> 8); 	// HI
-				mf->data[i + 1] = (uint8_t)lc[k].rcPresBits[addr]; 		// LO
+				// check if registers to read are in range
+				if ((startAddr + nrOfRegs) > LC_NO_OF_PRES_REGS)
+					return e_mbsExCode_illegalDataAddr;
+
+				// register values
+				for (uint32_t addr = 0, i = 1; i < (mf->data[0] + 1); i += 2, addr++)
+				{
+					mf->data[i] = (uint8_t)(lc[k].rcPresBits[addr] >> 8); 	// HI
+					mf->data[i + 1] = (uint8_t)lc[k].rcPresBits[addr]; 		// LO
+				}
+
+				retVal = e_mbsExCode_noError;
+				break;
 			}
 
-			retVal = e_mbsExCode_noError;
-			break;
-		}
-
-		case e_rcRegMap_IdFirst:
-		{
-			// check if registers to read are in range
-			if (nrOfRegs > (e_rcRegMap_IdLast - startAddr + 1))
-				return e_mbsExCode_illegalDataAddr;
-
-			// register values
-			for (uint32_t addr = 0, i = 1; i < (mf->data[0] + 1); i += 2, addr++)
+			case e_rcRegMap_IdFirst:
 			{
-				mf->data[i] = (uint8_t)(lc[k].uniqId[addr] >> 8); 	// HI
-				mf->data[i + 1] = (uint8_t)lc[k].uniqId[addr]; 		// LO
+				// check if registers to read are in range
+				if (nrOfRegs > (e_rcRegMap_IdLast - startAddr + 1))
+					return e_mbsExCode_illegalDataAddr;
+
+				// register values
+				for (uint32_t addr = 0, i = 1; i < (mf->data[0] + 1); i += 2, addr++)
+				{
+					mf->data[i] = (uint8_t)(lc[k].uniqId[addr] >> 8); 	// HI
+					mf->data[i + 1] = (uint8_t)lc[k].uniqId[addr]; 		// LO
+				}
+
+				retVal = e_mbsExCode_noError;
+				break;
 			}
 
-			retVal = e_mbsExCode_noError;
-			break;
+			default: retVal = e_mbsExCode_illegalDataAddr;
 		}
+	}
 
-		default: retVal = e_mbsExCode_illegalDataAddr;
+	// delegate request for RC
+	else
+	{
+		osSemaphoreWait(l->rcAccesSem, osWaitForever);
+
+		// read the status register
+		if (mbm_RequestReadHoldingRegs(
+				&l->mbm, startAddr / 0xFF, startAddr % 0xFF, nrOfRegs))
+			return HAL_ERROR;
+
+		l->mbm.delegate = true;
+		retVal = e_mbsExCode_delegate;
 	}
 
 	return retVal;
@@ -362,6 +417,42 @@ void mbg_uartPrintFrame(const mbgFrame_t* const mf)
 	// print
 	log_PushLine(e_logLevel_Debug, "%s: ADDR:0x%02X CODE:%02u DLEN:%02u DATA:%sCRC:0x%04X",
 			txtType, mf->addr, mf->code, mf->dataLen, databuf, mf->crc);
+}
+
+/*
+ * @brief	Rx timeout override
+ * @param	mbm: master struct
+ */
+void mbm_RespRxTimeoutError(mbmUart_t* const mbm)
+{
+	assert_param(mbm);
+
+	// enqueue the response, find the master
+	for (uint32_t i = 0; i < LC_NO_OF_MODULES; i++)
+	{
+		if (mbm == &lc[i].mbm)
+		{
+			// start address
+			uint16_t startAddr =
+					mbm->sendFrame.data[1] | ((uint16_t)mbm->sendFrame.data[0] << 8);
+
+			// check if it was ping
+			if ((mbm->sendFrame.code == e_mbFuncCode_ReadHoldingRegisters) &&
+					(startAddr == e_rcRegMap_Status))
+			{
+				// copy data
+				lc[i].rcResp.mbm = mbm;
+				lc[i].rcResp.timeout = true;
+
+				if (osOK != osMessagePut(lc[i].msgQId_Ping,
+						(uint32_t)&lc[i].rcResp, LC_RESP_QUEUE_TIMEOUT))
+					log_PushLine(e_logLevel_Warning, "Unable to enque the response");
+
+				// allow access to RC
+				osSemaphoreRelease(lc[i].rcAccesSem);
+			}
+		}
+	}
 }
 
 void lc_setLampsEnable(const bool val)

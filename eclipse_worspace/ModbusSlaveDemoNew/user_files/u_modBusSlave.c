@@ -332,14 +332,14 @@ void mbs_rxFrameHandle(mbsUart_t* const mbsu)
 			default: exCode = e_mbsExCode_illegalFunction;
 		}
 
-		if (mf->addr) // send response only if not broadcast
+		// send response only if not broadcast and excode is not a delegate
+		if (mf->addr && (exCode != e_mbsExCode_delegate))
 		{
 			// if exception code set, send error response
 			if (exCode)
 				mbs_SendErrorResponse(&mbsu->mbg, mf, exCode);
 
-			// otherwise standard response.
-			// Override func has to fill mf with data.
+			// otherwise standard response. Override func has to fill mf with data.
 			else
 				mbg_SendFrame(&mbsu->mbg, mf);
 		}

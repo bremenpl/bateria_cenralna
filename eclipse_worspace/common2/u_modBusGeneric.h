@@ -81,6 +81,8 @@ typedef enum
 	e_mbsExCode_slaveDeviceBusy		= 0x06,
 	e_mbsExCode_memoryParityError	= 0x08,
 
+	e_mbsExCode_delegate			= 0xFF, // non standard modbus code
+
 } mbgExCode_t;
 
 typedef enum
