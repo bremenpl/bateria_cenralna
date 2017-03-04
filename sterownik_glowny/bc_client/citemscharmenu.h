@@ -9,7 +9,7 @@ class CItemsCharMenu : public CItemsMenu
 {
     Q_OBJECT
 public:
-    explicit CItemsCharMenu(QWidget *parent = 0);
+    explicit CItemsCharMenu(const quint8 parentAddr, QWidget *parent = 0);
 
 signals:
 

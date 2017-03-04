@@ -11,7 +11,7 @@ class CItemsLcMenu : public CItemsMenu
 {
     Q_OBJECT
 public:
-    explicit CItemsLcMenu(QWidget *parent = 0);
+    explicit CItemsLcMenu(const quint8 parentAddr, QWidget *parent = 0);
 
 signals:
 

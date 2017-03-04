@@ -21,7 +21,7 @@ CMainMenu::CMainMenu(QWidget *parent) : CAbstractMenu(parent), ui(new Ui::CMainM
 
     // resize columns
     for (int i = 0; i < mp_itemsModel->columnCount(); i++)
-        ui->tvSlaves->setColumnWidth(i, 300);
+        ui->tvSlaves->setColumnWidth(i, 250);
 
     // add slave type rows
     addSlavesGroup(QStringLiteral("Total slaves"), 0);

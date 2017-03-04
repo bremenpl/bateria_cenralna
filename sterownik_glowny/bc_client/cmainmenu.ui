@@ -13,8 +13,8 @@
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="0">
+  <layout class="QVBoxLayout" name="verticalLayout_2">
+   <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
       <widget class="QPushButton" name="pbDevices">
@@ -26,13 +26,13 @@
        </property>
        <property name="minimumSize">
         <size>
-         <width>230</width>
+         <width>180</width>
          <height>140</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
-         <width>230</width>
+         <width>180</width>
          <height>140</height>
         </size>
        </property>
@@ -52,8 +52,8 @@
        </property>
        <property name="iconSize">
         <size>
-         <width>128</width>
-         <height>128</height>
+         <width>70</width>
+         <height>70</height>
         </size>
        </property>
        <property name="checkable">
@@ -71,13 +71,13 @@
        </property>
        <property name="minimumSize">
         <size>
-         <width>230</width>
+         <width>180</width>
          <height>140</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
-         <width>230</width>
+         <width>180</width>
          <height>140</height>
         </size>
        </property>
@@ -98,8 +98,8 @@ Tests</string>
        </property>
        <property name="iconSize">
         <size>
-         <width>128</width>
-         <height>128</height>
+         <width>70</width>
+         <height>70</height>
         </size>
        </property>
        <property name="checkable">
@@ -117,13 +117,13 @@ Tests</string>
        </property>
        <property name="minimumSize">
         <size>
-         <width>230</width>
+         <width>180</width>
          <height>140</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
-         <width>230</width>
+         <width>180</width>
          <height>140</height>
         </size>
        </property>
@@ -143,8 +143,8 @@ Tests</string>
        </property>
        <property name="iconSize">
         <size>
-         <width>128</width>
-         <height>128</height>
+         <width>70</width>
+         <height>70</height>
         </size>
        </property>
        <property name="checkable">
@@ -162,13 +162,13 @@ Tests</string>
        </property>
        <property name="minimumSize">
         <size>
-         <width>230</width>
+         <width>180</width>
          <height>140</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
-         <width>230</width>
+         <width>180</width>
          <height>140</height>
         </size>
        </property>
@@ -188,8 +188,8 @@ Tests</string>
        </property>
        <property name="iconSize">
         <size>
-         <width>128</width>
-         <height>128</height>
+         <width>70</width>
+         <height>70</height>
         </size>
        </property>
        <property name="checkable">
@@ -199,7 +199,7 @@ Tests</string>
      </item>
     </layout>
    </item>
-   <item row="1" column="0">
+   <item>
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
@@ -210,12 +210,12 @@ Tests</string>
      <property name="sizeHint" stdset="0">
       <size>
        <width>20</width>
-       <height>60</height>
+       <height>20</height>
       </size>
      </property>
     </spacer>
    </item>
-   <item row="2" column="0">
+   <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2">
      <item>
       <layout class="QVBoxLayout" name="verticalLayout">
@@ -224,7 +224,7 @@ Tests</string>
          <property name="minimumSize">
           <size>
            <width>0</width>
-           <height>25</height>
+           <height>20</height>
           </size>
          </property>
          <property name="font">
@@ -249,7 +249,13 @@ Tests</string>
          <property name="minimumSize">
           <size>
            <width>130</width>
-           <height>130</height>
+           <height>80</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>80</height>
           </size>
          </property>
          <property name="font">
@@ -318,7 +324,7 @@ Tests</string>
      </item>
     </layout>
    </item>
-   <item row="3" column="0">
+   <item>
     <spacer name="verticalSpacer_2">
      <property name="orientation">
       <enum>Qt::Vertical</enum>

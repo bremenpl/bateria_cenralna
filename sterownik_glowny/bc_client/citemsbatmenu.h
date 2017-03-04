@@ -9,7 +9,7 @@ class CItemsBatMenu : public CItemsMenu
 {
     Q_OBJECT
 public:
-    explicit CItemsBatMenu(QWidget *parent = 0);
+    explicit CItemsBatMenu(const quint8 parentAddr, QWidget *parent = 0);
 
 signals:
 

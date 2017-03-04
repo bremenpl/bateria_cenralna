@@ -20,7 +20,7 @@ CAbstractDevice::CAbstractDevice(QWidget *parent) : CAbstractMenu(parent), ui(ne
 
     // resize all
     for (int i = 0; i < ui->twParams->columnCount(); i++)
-        ui->twParams->header()->resizeSection(i, 200);
+        ui->twParams->header()->resizeSection(i, 170);
 
     // share tree widget
     mp_tw = ui->twParams;

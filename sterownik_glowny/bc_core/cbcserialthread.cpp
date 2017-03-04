@@ -22,7 +22,7 @@ CBcSerialThread::CBcSerialThread(const QString& port,
     mp_modbusMaster->setPortName(port);
     mp_modbusMaster->setBaudRate(QSerialPort::Baud9600);
     mp_modbusMaster->setDataBits(QSerialPort::Data8);
-    mp_modbusMaster->setParity(QSerialPort::EvenParity);
+    mp_modbusMaster->setParity(QSerialPort::NoParity);
     mp_modbusMaster->setStopBits(QSerialPort::OneStop);
     mp_modbusMaster->setFlowControl(QSerialPort::NoFlowControl);
 
@@ -171,37 +171,32 @@ void CBcSerialThread::on_sendData2ModbusSlave(const tcpReq req,
     {
         case EDeviceTypes::LineCtrler:
         {
-            if (pv.size() <= 1) // msg for line controller, 0 was rules out earlier
+            quint16 rcOffset = (pv.size() - 1) * 0xFF; // ie 0x100 is addr 1 for RC 1
+
+            switch (cmd)
             {
-                switch (cmd)
+                case tcpCmd::takeUniqId:
                 {
-                    case tcpCmd::takeUniqId:
+                    if (req != tcpReq::get)
+                        CBcLogger::instance()->print(MLL::ELogLevel::LCritical, "Unique Id is read only!");
+                    else
                     {
-                        if (req != tcpReq::get)
-                            CBcLogger::instance()->print(MLL::ELogLevel::LCritical, "Unique Id is read only!");
-                        else
-                        {
-                            // read registers
-                            mp_modbusMaster->sendRequest_ReadHoldingRegisters(
-                                pv.first()->m_slaveAddr, (quint16)EAddrCodes::UniqId, NO_OF_UNIQDID_REG);
+                        // read registers
+                        mp_modbusMaster->sendRequest_ReadHoldingRegisters(pv.first()->m_slaveAddr,
+                            (quint16)EAddrCodes::UniqId + rcOffset, NO_OF_UNIQDID_REG);
 
-                            // start response timeout timer
-                            mp_respToutTimer->start();
-                            mp_pollTimer->stop();
-                        }
-                        break;
+                        // start response timeout timer
+                        mp_respToutTimer->start();
+                        mp_pollTimer->stop();
                     }
-
-                    default:
-                    {
-                        CBcLogger::instance()->print(MLL::ELogLevel::LCritical,
-                            "Cannot send serial data for unknown cmd (%i)", (int)cmd);
-                    }
+                    break;
                 }
-            }
-            else // msg for RC
-            {
-                // ADD CODE
+
+                default:
+                {
+                    CBcLogger::instance()->print(MLL::ELogLevel::LCritical,
+                        "Cannot send serial data for unknown cmd (%i)", (int)cmd);
+                }
             }
             break;
         }
@@ -228,6 +223,8 @@ void CBcSerialThread::on_pollTimeout()
             m_curScanDev = 1;
         else
             m_curScanDev++;
+
+        //m_curScanDev = 100;
 
         // read registers
         mp_modbusMaster->sendRequest_ReadHoldingRegisters(
@@ -298,7 +295,7 @@ void CBcSerialThread::run()
 
     // set and start poll timer
     mp_pollTimer->setSingleShot(true);
-    mp_pollTimer->setInterval(100);
+    mp_pollTimer->setInterval(500);
     mp_pollTimer->start();
 
     exec();

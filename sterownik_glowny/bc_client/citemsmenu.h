@@ -25,7 +25,7 @@ class CItemsMenu : public CAbstractMenu
     Q_OBJECT
 
 public:
-    explicit CItemsMenu(QWidget *parent = 0);
+    explicit CItemsMenu(const quint8 parentAddr, QWidget *parent = 0);
     ~CItemsMenu();
 
     QString getUniqIdString(const quint16* const uniqId);
@@ -44,9 +44,9 @@ private:
     QVector<CBcSlaveDevice*>*   mp_slaves = 0;
 
 protected:
-    int             m_noOfItems;
     EDeviceTypes    m_deviceType = EDeviceTypes::Dummy;
     QStandardItemModel* mp_itemsModel;
+    quint8          m_parentAddr = 0;
 
 signals:
     void deviceSelected(const EDeviceTypes deviceType, const int slaveAddr);

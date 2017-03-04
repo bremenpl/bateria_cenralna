@@ -1,6 +1,7 @@
 #include "citemscharmenu.h"
 
-CItemsCharMenu::CItemsCharMenu(QWidget *parent) : CItemsMenu(parent)
+CItemsCharMenu::CItemsCharMenu(const quint8 parentAddr, QWidget *parent) :
+    CItemsMenu(parentAddr, parent)
 {
     // set the menu name
     m_menuName = "Chargers Menu";

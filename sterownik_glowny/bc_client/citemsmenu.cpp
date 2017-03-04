@@ -2,13 +2,14 @@
 #include "ui_citemsmenu.h"
 #include "mainwindow.h"
 
-CItemsMenu::CItemsMenu(QWidget *parent) : CAbstractMenu(parent), ui(new Ui::CItemsMenu)
+CItemsMenu::CItemsMenu(const quint8 parentAddr, QWidget *parent) :
+    CAbstractMenu(parent), ui(new Ui::CItemsMenu)
 {
     qRegisterMetaType<QVector<slaveId*>>("QVector<slaveId*>");
 
     // start values
-    m_noOfItems = 0;
     m_columnLabels.clear();
+    m_parentAddr = parentAddr;
 
     ui->setupUi(this);
 
@@ -43,9 +44,9 @@ CItemsMenu::CItemsMenu(QWidget *parent) : CAbstractMenu(parent), ui(new Ui::CIte
             mainObj, SLOT(on_getSlaveUniqId(const QVector<slaveId*>&)), Qt::QueuedConnection);
 
     // resize columns
-    ui->tvItems->setColumnWidth((int)itemsTableCol::slaveAddr, 100);
+    ui->tvItems->setColumnWidth((int)itemsTableCol::slaveAddr, 90);
     ui->tvItems->setColumnWidth((int)itemsTableCol::uniqId, 300);
-    ui->tvItems->setColumnWidth((int)itemsTableCol::userStr, 300);
+    ui->tvItems->setColumnWidth((int)itemsTableCol::userStr, 250);
 
     // buttons
     manageControls();

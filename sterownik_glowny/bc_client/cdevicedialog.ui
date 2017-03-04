@@ -24,13 +24,13 @@
      </property>
      <property name="minimumSize">
       <size>
-       <width>230</width>
+       <width>180</width>
        <height>140</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>230</width>
+       <width>180</width>
        <height>140</height>
       </size>
      </property>
@@ -50,8 +50,8 @@
      </property>
      <property name="iconSize">
       <size>
-       <width>128</width>
-       <height>128</height>
+       <width>70</width>
+       <height>70</height>
       </size>
      </property>
      <property name="checkable">
@@ -69,13 +69,13 @@
      </property>
      <property name="minimumSize">
       <size>
-       <width>230</width>
+       <width>180</width>
        <height>140</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>230</width>
+       <width>180</width>
        <height>140</height>
       </size>
      </property>
@@ -95,8 +95,8 @@
      </property>
      <property name="iconSize">
       <size>
-       <width>128</width>
-       <height>128</height>
+       <width>70</width>
+       <height>70</height>
       </size>
      </property>
      <property name="checkable">
@@ -114,13 +114,13 @@
      </property>
      <property name="minimumSize">
       <size>
-       <width>230</width>
+       <width>180</width>
        <height>140</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>230</width>
+       <width>180</width>
        <height>140</height>
       </size>
      </property>
@@ -141,8 +141,8 @@ supply</string>
      </property>
      <property name="iconSize">
       <size>
-       <width>128</width>
-       <height>128</height>
+       <width>70</width>
+       <height>70</height>
       </size>
      </property>
      <property name="checkable">
@@ -160,13 +160,13 @@ supply</string>
      </property>
      <property name="minimumSize">
       <size>
-       <width>230</width>
+       <width>180</width>
        <height>140</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>230</width>
+       <width>180</width>
        <height>140</height>
       </size>
      </property>
@@ -187,8 +187,8 @@ controllers</string>
      </property>
      <property name="iconSize">
       <size>
-       <width>128</width>
-       <height>128</height>
+       <width>70</width>
+       <height>70</height>
       </size>
      </property>
      <property name="checkable">

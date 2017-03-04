@@ -197,14 +197,14 @@ void MainWindow::on_MenuBtnClicked(const EBtnTypes btn)
 
         case EBtnTypes::LineControllers:
         {
-            menuPanel = new CItemsLcMenu(this);
+            menuPanel = new CItemsLcMenu(0, this);
             name = "Line\nCtrls";
             break;
         }
 
         case EBtnTypes::RelayControllers:
         {
-            menuPanel = new CItemsRcMenu(this);
+            menuPanel = new CItemsRcMenu(m_selectedSlave.m_slaveAddr, this);
             name = "Relay\nCtrls";
             break;
         }
@@ -218,14 +218,14 @@ void MainWindow::on_MenuBtnClicked(const EBtnTypes btn)
 
         case EBtnTypes::Batteries:
         {
-            menuPanel = new CItemsBatMenu(this);
+            menuPanel = new CItemsBatMenu(0, this);
             name = "Batt's";
             break;
         }
 
         case EBtnTypes::Chargers:
         {
-            menuPanel = new CItemsCharMenu(this);
+            menuPanel = new CItemsCharMenu(0, this);
             name = "Char's";
             break;
         }

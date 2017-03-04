@@ -1,6 +1,7 @@
 #include "citemslcmenu.h"
 
-CItemsLcMenu::CItemsLcMenu(QWidget *parent) : CItemsMenu(parent)
+CItemsLcMenu::CItemsLcMenu(const quint8 parentAddr, QWidget *parent) :
+    CItemsMenu(parentAddr, parent)
 {
     // set the menu name
     m_menuName = "Line Controllers Menu";
@@ -11,7 +12,7 @@ CItemsLcMenu::CItemsLcMenu(QWidget *parent) : CItemsMenu(parent)
 
 void CItemsLcMenu::slavesChangedDevSpecific(const QVector<CBcSlaveDevice*>& slaves)
 {
-    // add to level slaves
+    // add top level slaves
     foreach (CBcSlaveDevice* slave, slaves)
     {
         // add slave only if its proper type and is present

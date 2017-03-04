@@ -51,9 +51,37 @@ void CBcLcThread::responseReady_ReadHoldingRegistersOverride(const quint8 slaveI
             }
         }
     }
+    else if (startAddr > 0xFF) // delegate
+    {
+        uint16_t lcAddr = startAddr / 0xFF;
+        uint16_t rcAddr = startAddr & 0xFF;
 
-    // TODO add presence setting for RC
-    /*CBcLogger::instance()->print(MLL::ELogLevel::LInfo,
-                                 "Read holding registers response (LC). SID:%u, SADDR:%u, NOOFREGS:%u",
-                                 slaveId, startAddr, registers.size());*/
+        m_slaves[lcAddr - 1]->subSlaves()[rcAddr - 1]->sendGetCmdToClients(tcpCmd::takeUniqId, registers);
+    }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
