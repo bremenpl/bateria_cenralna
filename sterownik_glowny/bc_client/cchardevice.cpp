@@ -9,7 +9,7 @@ CCharDevice::CCharDevice(QWidget *parent) : CAbstractDevice(parent)
     // place charger tree view specific modifications here if needed
 
 	// resize name and access column
-    mp_tw->header()->resizeSection(0, 250);
+    /*mp_tw->header()->resizeSection(0, 250);
     mp_tw->header()->resizeSection(2, 150);
 
     // 1st parameter: voltage
@@ -28,5 +28,5 @@ CCharDevice::CCharDevice(QWidget *parent) : CAbstractDevice(parent)
     item = new QTreeWidgetItem(mp_tw);
     item->setText(0, "Charging limit [s]");
     item->setText(1, "R");
-    item->setText(2, "7200");
+    item->setText(2, "7200");*/
 }

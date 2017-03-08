@@ -44,6 +44,7 @@ public:
 
     bool virtKeyboardOn() { return m_virtKeyboardOn; }
     QVector<CBcSlaveDevice*>* slaves() { return &m_slaves; }
+    QVector<slaveId*>* selectedPv() { return &m_pv; }
 
 public slots:
     void on_tcpSocketConnected();
@@ -52,6 +53,8 @@ public slots:
 
     void on_MenuBtnClicked(const EBtnTypes btn);
     void on_DeviceSelected(const EDeviceTypes deviceType, const int slaveAddr);
+    void on_getRcStatusReg(const QVector<slaveId*>* pv);
+    void on_setRcRelayState(bool state, const QVector<slaveId*>* pv);
 
 signals:
     void slavesChanged(const QVector<CBcSlaveDevice*>& slaves);
@@ -76,6 +79,8 @@ private:
     QVector<CBcSlaveDevice*>* getSlaveIndex(QVector<slaveId*>& pv, int& index);
 
     void slaveUniqIdObtained(const quint16* uniqId, QVector<slaveId*>& pv);
+    void slaveStatusRegObtained(const quint16 status, QVector<slaveId*>& pv);
+    void slaveRcBitChanged(const bool state, QVector<slaveId*>& pv);
     void sendDataRequest(const tcpFrame& frame);
     void sendData2Socket(const QByteArray& data);
 
@@ -98,6 +103,7 @@ private:
     QVector<CBcSlaveDevice*> m_slaves;      /*!< "list" of slave devices */
     slaveId         m_selectedSlave;
     slaveId         m_selectedSubSlave;     /*!< Maximum of 1 subslave for now */
+    QVector<slaveId*> m_pv;                 /*!< Parent vector */
 };
 
 #endif // MAINWINDOW_H

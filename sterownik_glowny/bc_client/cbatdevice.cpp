@@ -9,7 +9,7 @@ CBatDevice::CBatDevice(QWidget *parent) : CAbstractDevice(parent)
     // place line controllers tree view specific modifications here if needed
 
     // resize parameter, acces and value column
-    mp_tw->header()->resizeSection(0, 250);
+    /*mp_tw->header()->resizeSection(0, 250);
     mp_tw->header()->resizeSection(1, 80);
     mp_tw->header()->resizeSection(2, 150);
 
@@ -29,5 +29,5 @@ CBatDevice::CBatDevice(QWidget *parent) : CAbstractDevice(parent)
     item = new QTreeWidgetItem(mp_tw);
     item->setText(0, "Capacity [Ah]");
     item->setText(1, "R");
-    item->setText(2, "60");
+    item->setText(2, "60");*/
 }

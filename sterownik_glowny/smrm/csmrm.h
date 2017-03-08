@@ -70,7 +70,7 @@ public:
 
     const SModBusFrame& txFrame(){ return m_txFrame; }
     QQueue<SModBusFrame>* txFrameQueue() { return &m_txFramesQueue; }
-    void on_newTxFrameEnqueued();
+    int newTxFrameEnqueued();
 
 
 signals:
@@ -84,7 +84,6 @@ signals:
                                  const quint16 startAddr,
                                  const QVector<bool>& coils);
     void responseReady_ExceptionCode(const quint8 slaveId, EExceptionCodes code);
-    void newTxFrameEnqueued();
 
 private:
     quint16 calculateCRC(const char *data, qint32 len);

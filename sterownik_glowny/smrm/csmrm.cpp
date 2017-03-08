@@ -154,7 +154,7 @@ qint32 Csmrm::digForResponse(const QByteArray& buf)
                         m_rxRawBytes.append(byte);
 
                         // check when to move to crc phase
-                        if (m_currentIndex >= 5)
+                        if (m_currentIndex >= 6)
                             m_rxState = EResponseState::Crc;
                     }
 
@@ -249,7 +249,7 @@ void Csmrm::parseResponse(SModBusFrame* frame)
             quint16 addr = ((quint16)frame->data[0] << 8) | frame->data[1];
             bool val = (bool)frame->data[2];
 
-            emit responseReady_WriteSingleCoil(frame->slaveAddr, addr, val);
+            emit responseReady_WriteSingleCoil(frame->slaveAddr, m_startAddr, val);
             break;
         }
 
@@ -286,7 +286,7 @@ qint32 Csmrm::sendFrame(const SModBusFrame& frame)
 
     // save start addr in case a frame needs it (ie. read holding regs)
     m_startAddr = (quint16)frame.data[0] << 8;
-    m_startAddr |= (quint16)frame.data[1];
+    m_startAddr |= (quint16)frame.data[1] & 0xFF;
 
     // print raw data
     if (retVal)
@@ -309,9 +309,11 @@ void Csmrm::enqueueFrame(const SModBusFrame& frame)
     //qDebug() << "queue++" << m_txFramesQueue.size();
 }
 
-void Csmrm::on_newTxFrameEnqueued()
+int Csmrm::newTxFrameEnqueued()
 {
-    if (m_txFramesQueue.size())
+    int size = m_txFramesQueue.size();
+
+    if (size)
     {
         m_txFrame = m_txFramesQueue.dequeue();
         //qDebug() << "queue--" << m_txFramesQueue.size();
@@ -320,6 +322,8 @@ void Csmrm::on_newTxFrameEnqueued()
             CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
                     << "Error sending data through modbus";
     }
+
+    return size;
 }
 
 /*!

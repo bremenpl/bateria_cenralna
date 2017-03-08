@@ -21,6 +21,10 @@ public:
                                                             const quint16 startAddr,
                                                             const QVector<quint16>& registers);
 
+    virtual void responseReady_WriteSingleCoil(const quint8 slaveId,
+                                               const quint16 addr,
+                                               const bool val);
+
 signals:
 
 public slots:

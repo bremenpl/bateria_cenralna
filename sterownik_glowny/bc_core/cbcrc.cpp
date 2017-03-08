@@ -8,3 +8,11 @@ CBcRc::CBcRc(const quint16 slaveAddr,
 {
     m_slaveId.m_slaveType = EDeviceTypes::RelayCtrler;
 }
+
+void CBcRc::statusRegBitOperation(bool set, quint32 bit)
+{
+    if (set)
+        m_statusReg |= 1 << bit;
+    else
+        m_statusReg &= ~(1 << bit);
+}

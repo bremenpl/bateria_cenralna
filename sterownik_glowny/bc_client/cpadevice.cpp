@@ -8,7 +8,7 @@ CPaDevice::CPaDevice(QWidget *parent) : CAbstractDevice(parent)
 
     // place line controllers tree view specific modifications here if needed
 
-    // resize name and access column
+    /*// resize name and access column
     mp_tw->header()->resizeSection(0, 250);
     mp_tw->header()->resizeSection(2, 150);
 
@@ -28,6 +28,6 @@ CPaDevice::CPaDevice(QWidget *parent) : CAbstractDevice(parent)
     item = new QTreeWidgetItem(mp_tw);
     item->setText(0, "Output power [W]");
     item->setText(1, "R");
-    item->setText(2, "120");
+    item->setText(2, "120");*/
 
 }

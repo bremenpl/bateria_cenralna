@@ -12,17 +12,31 @@
 #include "csmrm.h"
 #include "cbcslavedevice.h"
 
+#define MAX_PINGS           30
+
 #define NO_OF_PING_REGS     2 // a const for now
 #define NO_OF_UNIQDID_REG   6
+#define NO_OF_STATUS_REGS   1
 
 class CBcSerialThread : public QThread
 {
     Q_OBJECT
 public:
-    enum class EAddrCodes
+    enum class EAddrCodesLC
     {
         Ping            = 0,
         UniqId          = 2,
+    };
+
+    enum class EAddrCodesRC
+    {
+        Status          = 0,
+        UniqId          = 2,
+    };
+
+    enum class ECoilAddrCodesRc
+    {
+        Relay           = 8,
     };
 
     explicit CBcSerialThread(const QString& port,
@@ -36,6 +50,11 @@ public:
                                                             const quint16 startAddr,
                                                             const QVector<quint16>& registers);
 
+    virtual void responseReady_WriteSingleCoil(const quint8 slaveId,
+                                               const quint16 addr,
+                                               const bool val);
+    bool reOpenPort();
+
 
 public slots:
     void on_setPingParameters(const quint32 noOfPings, const quint32 noOfDevices);
@@ -43,6 +62,10 @@ public slots:
     void on_responseReady_ReadHoldingRegisters(const quint8 slaveId,
                                                const quint16 startAddr,
                                                const QVector<quint16>& registers);
+
+    void on_responseReady_WriteSingleCoil(const quint8 slaveId,
+                                          const quint16 addr,
+                                          const bool val);
 
     void on_responseReady_ReadCoils(const quint8 slaveId,
                                     const quint16 startAddr,
@@ -61,14 +84,16 @@ signals:
 
 private:
     // members
-    Csmrm*          mp_modbusMaster;
     QTimer*         mp_pollTimer;
     QTimer*         mp_respToutTimer;
     quint32         m_noOfDev2Scan;         /*!< amount of devices to scan from address 1 */
     quint32         m_pingsForPresence;     /*!< amount of pings needed for presence status */
     quint32         m_curScanDev;           /*!< currently scanned device */
+    quint32         m_rcOffset;
+    quint32         m_curPing = 0;
 
 protected:
+    Csmrm*          mp_modbusMaster;
     QVector<CBcSlaveDevice*> m_slaves;      /*!< "list" of line controllers slave devices */
 
 };

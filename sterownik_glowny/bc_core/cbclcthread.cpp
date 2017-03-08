@@ -31,7 +31,7 @@ void CBcLcThread::responseReady_ReadHoldingRegistersOverride(const quint8 slaveI
                                                          const quint16 startAddr,
                                                          const QVector<quint16>& registers)
 {
-    if (EAddrCodes::Ping == (EAddrCodes)startAddr)
+    if (EAddrCodesLC::Ping == (EAddrCodesLC)startAddr)
     {
         for (int regs = 0; regs < registers.length(); regs++)
         {
@@ -51,12 +51,46 @@ void CBcLcThread::responseReady_ReadHoldingRegistersOverride(const quint8 slaveI
             }
         }
     }
-    else if (startAddr > 0xFF) // delegate
+    else if (startAddr >= 0xFF) // delegate
     {
-        uint16_t lcAddr = startAddr / 0xFF;
-        uint16_t rcAddr = startAddr & 0xFF;
+        quint32 lcAddr = mp_modbusMaster->txFrame().slaveAddr;
+        quint32 rcAddr = startAddr / 0xFF;
+        quint32 cmdAddr = startAddr % 0xFF;
+        tcpCmd tcpcmd;
 
-        m_slaves[lcAddr - 1]->subSlaves()[rcAddr - 1]->sendGetCmdToClients(tcpCmd::takeUniqId, registers);
+        switch ((EAddrCodesRC)cmdAddr)
+        {
+            case EAddrCodesRC::Status:  tcpcmd = tcpCmd::takeStatus; break;
+            case EAddrCodesRC::UniqId:  tcpcmd = tcpCmd::takeUniqId; break;
+            default: tcpcmd = tcpCmd::dummy;
+        }
+
+        m_slaves[lcAddr - 1]->subSlaves()[rcAddr - 1]->sendGetCmdToClients(tcpcmd, registers);
+    }
+}
+
+void CBcLcThread::responseReady_WriteSingleCoil(const quint8 slaveId,
+                                                const quint16 addr,
+                                                const bool val)
+{
+    (void)slaveId;
+
+    if (addr >= 0xFF) // delegate
+    {
+        quint32 lcAddr = mp_modbusMaster->txFrame().slaveAddr;
+        quint32 rcAddr = addr / 0xFF;
+        quint32 cmdAddr = addr % 0xFF;
+        tcpCmd tcpcmd;
+
+        switch ((ECoilAddrCodesRc)cmdAddr)
+        {
+            case ECoilAddrCodesRc::Relay:  tcpcmd = tcpCmd::setRcBit; break;
+            default: tcpcmd = tcpCmd::dummy;
+        }
+
+        QVector<quint16> registers;
+        registers.append((quint8)val);
+        m_slaves[lcAddr - 1]->subSlaves()[rcAddr - 1]->sendGetCmdToClients(tcpcmd, registers);
     }
 }
 

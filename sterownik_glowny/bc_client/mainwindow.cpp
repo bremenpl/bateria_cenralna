@@ -256,52 +256,61 @@ void MainWindow::on_DeviceSelected(const EDeviceTypes deviceType, const int slav
 {
     QString name;
     CAbstractMenu* menuPanel = 0;
+    m_pv.clear();
 
     switch (deviceType)
     {
         case EDeviceTypes::LineCtrler:
         {
-            name = "LC";
-            menuPanel = new CPreLcPanel(this);
-
             m_selectedSlave.m_slaveAddr = slaveAddr;
             m_selectedSlave.m_slaveType = deviceType;
             m_selectedSubSlave.m_slaveAddr = 0;
             m_selectedSubSlave.m_slaveType = EDeviceTypes::Dummy;
+            m_pv.append(&m_selectedSlave);
+            m_pv.append(&m_selectedSubSlave);
+
+            name = "LC";
+            menuPanel = new CPreLcPanel(this);
             break;
         }
 
         case EDeviceTypes::RelayCtrler:
         {
-            name = "RC";
-            menuPanel = new CRcDevice(this);
-
             m_selectedSubSlave.m_slaveAddr = slaveAddr;
             m_selectedSubSlave.m_slaveType = deviceType;
+            m_pv.append(&m_selectedSlave);
+            m_pv.append(&m_selectedSubSlave);
+
+            name = "RC";
+            menuPanel = new CRcDevice(this);
             break;
         }
 
         case EDeviceTypes::Battery:
         {
-            name = "BAT";
-            menuPanel = new CBatDevice(this);
-
             m_selectedSlave.m_slaveAddr = slaveAddr;
             m_selectedSlave.m_slaveType = deviceType;
             m_selectedSubSlave.m_slaveAddr = 0;
             m_selectedSubSlave.m_slaveType = EDeviceTypes::Dummy;
+            m_pv.append(&m_selectedSlave);
+            m_pv.append(&m_selectedSubSlave);
+
+            name = "BAT";
+            menuPanel = new CBatDevice(this);
             break;
         }
 
         case EDeviceTypes::Charger:
         {
-            name = "CHAR";
-            menuPanel = new CCharDevice(this);
-
             m_selectedSlave.m_slaveAddr = slaveAddr;
             m_selectedSlave.m_slaveType = deviceType;
             m_selectedSubSlave.m_slaveAddr = 0;
             m_selectedSubSlave.m_slaveType = EDeviceTypes::Dummy;
+            m_pv.append(&m_selectedSlave);
+            m_pv.append(&m_selectedSubSlave);
+
+            name = "CHAR";
+            menuPanel = new CCharDevice(this);
             break;
         }
 
@@ -319,11 +328,11 @@ void MainWindow::on_DeviceSelected(const EDeviceTypes deviceType, const int slav
         ui->tbMain->addTab(menuPanel, name);
         ui->tbMain->setCurrentIndex((ui->tbMain->indexOf(menuPanel)));
 
-        emit slavesChanged(m_slaves);
+        //emit slavesChanged(m_slaves);
     }
 
     CBcLogger::instance()->print(MLL::ELogLevel::LDebug,
-                                 "Device of type %u with addr %u selected", (int)deviceType, slaveAddr);
+        "Device of type %u with addr %u selected", (int)deviceType, slaveAddr);
 }
 
 /*!
@@ -442,6 +451,27 @@ void MainWindow::on_newFramesAvailable(QQueue<tcpFrame*>* framesQueue)
                 pv.append(CTcpParser::getParentVector(frame, depthLevel, dataLen));
 
                 slaveUniqIdObtained(uniqId, pv);
+                break;
+            }
+
+            case tcpCmd::takeStatus:
+            {
+                quint16 statusReg = frame->data[0] | (((quint16)frame->data[1] << 8) & 0xFF);
+                dataLen = 2;
+                depthLevel = (frame->len - dataLen) / 2;
+                pv.append(CTcpParser::getParentVector(frame, depthLevel, dataLen));
+                slaveStatusRegObtained(statusReg, pv);
+                break;
+            }
+
+            case tcpCmd::setRcBit:
+            {
+                bool state = (bool)frame->data[0];
+                dataLen = 2;
+                depthLevel = (frame->len - dataLen) / 2;
+                pv.append(CTcpParser::getParentVector(frame, depthLevel, dataLen));
+
+                slaveRcBitChanged(state, pv);
                 break;
             }
 
@@ -565,7 +595,7 @@ QVector<CBcSlaveDevice*>* MainWindow::getSlaveIndex(QVector<slaveId*>& pv, int& 
 
         // update parent slave
         if (pv.size() > (i + 1))
-            parentSlave = slaveVector->last();
+            parentSlave = slaveVector->at(i);
     }
 
     // save found values
@@ -580,6 +610,30 @@ void MainWindow::slaveUniqIdObtained(const quint16* uniqId, QVector<slaveId*>& p
 
     if (index >= 0)
         sv->at(index)->setUniqId(uniqId);
+}
+
+void MainWindow::slaveStatusRegObtained(const quint16 status, QVector<slaveId*>& pv)
+{
+    int index = 0;
+    QVector<CBcSlaveDevice*>* sv = getSlaveIndex(pv, index);
+
+    if (index >= 0)
+    {
+        auto rc = dynamic_cast<CBcRc*>(sv->at(index));
+        rc->statusRegSet(status);
+    }
+}
+
+void MainWindow::slaveRcBitChanged(const bool state, QVector<slaveId*>& pv)
+{
+    int index = 0;
+    QVector<CBcSlaveDevice*>* sv = getSlaveIndex(pv, index);
+
+    if (index >= 0)
+    {
+        auto rc = dynamic_cast<CBcRc*>(sv->at(index));
+        rc->statusRegBitOperation(state, STATUS_REG_RELAY_BIT);
+    }
 }
 
 /*!
@@ -603,6 +657,61 @@ void MainWindow::on_getSlaveUniqId(const QVector<slaveId*>& pv)
 
     // append parent vector
     foreach (slaveId* item, pv)
+    {
+        frame.data.append(item->m_slaveAddr);
+        frame.data.append((quint8)item->m_slaveType);
+    }
+
+    frame.len = frame.data.size();
+    sendDataRequest(frame);
+}
+
+void MainWindow::on_getRcStatusReg(const QVector<slaveId*>* pv)
+{
+    if (!pv->size())
+    {
+        CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
+                << "on_getRcStatusReg empty parent vector!";
+        return;
+    }
+
+    tcpFrame frame;
+    frame.dType = pv->last()->m_slaveType;
+    frame.slaveAddr = pv->last()->m_slaveAddr;
+    frame.req = tcpReq::get;
+    frame.cmd = tcpCmd::takeStatus;
+
+    // append parent vector
+    foreach (slaveId* item, *pv)
+    {
+        frame.data.append(item->m_slaveAddr);
+        frame.data.append((quint8)item->m_slaveType);
+    }
+
+    frame.len = frame.data.size();
+    sendDataRequest(frame);
+}
+
+void MainWindow::on_setRcRelayState(bool state, const QVector<slaveId*>* pv)
+{
+    if (!pv->size())
+    {
+        CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
+                << "on_setRcRelayState empty parent vector!";
+        return;
+    }
+
+    tcpFrame frame;
+    frame.dType = pv->last()->m_slaveType;
+    frame.slaveAddr = pv->last()->m_slaveAddr;
+    frame.req = tcpReq::set;
+    frame.cmd = tcpCmd::setRcBit;
+
+    // relay status
+    frame.data.append((quint8)state);
+
+    // append parent vector
+    foreach (slaveId* item, *pv)
     {
         frame.data.append(item->m_slaveAddr);
         frame.data.append((quint8)item->m_slaveType);

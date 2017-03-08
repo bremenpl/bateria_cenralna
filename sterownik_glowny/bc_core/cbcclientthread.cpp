@@ -89,7 +89,9 @@ void CBcClientThread::on_newFramesAvailable(QQueue<tcpFrame*>* framesQueue)
         // switch needed only to insert command specific data len
         switch (frame->cmd)
         {
+            case tcpCmd::takeStatus:
             case tcpCmd::takeUniqId: dataLen = 0;   break; // only get available for bc_core
+            case tcpCmd::setRcBit:   dataLen = 1;   break;
 
             default:
             {
@@ -102,6 +104,7 @@ void CBcClientThread::on_newFramesAvailable(QQueue<tcpFrame*>* framesQueue)
         {
             depthLevel = (frame->len - dataLen) / 2;
             pv.append(CTcpParser::getParentVector(frame, depthLevel, dataLen));
+            data.append(frame->data);
 
             // send the data further
             emit sendData2ModbusSlave(frame->req, frame->cmd, pv, data);

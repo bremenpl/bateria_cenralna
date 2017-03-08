@@ -15,18 +15,19 @@
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
-    <widget class="QTreeWidget" name="twParams">
+    <widget class="QTableView" name="tvParams">
      <property name="font">
       <font>
        <family>DejaVu Sans</family>
-       <pointsize>16</pointsize>
+       <pointsize>14</pointsize>
       </font>
      </property>
-     <column>
-      <property name="text">
-       <string notr="true">1</string>
-      </property>
-     </column>
+     <property name="selectionMode">
+      <enum>QAbstractItemView::SingleSelection</enum>
+     </property>
+     <property name="selectionBehavior">
+      <enum>QAbstractItemView::SelectRows</enum>
+     </property>
     </widget>
    </item>
   </layout>

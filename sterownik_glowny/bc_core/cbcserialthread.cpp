@@ -37,6 +37,9 @@ CBcSerialThread::CBcSerialThread(const QString& port,
             this, SLOT(on_responseReady_ReadCoils(const quint8, const quint16, const QVector<bool>&)),
             Qt::UniqueConnection);
 
+    connect(mp_modbusMaster, &Csmrm::responseReady_WriteSingleCoil,
+            this, &CBcSerialThread::on_responseReady_WriteSingleCoil, Qt::UniqueConnection);
+
     // tcp slots
     if (parent)
     {
@@ -56,6 +59,21 @@ CBcSerialThread::CBcSerialThread(const QString& port,
 
     CBcLogger::instance()->print(MLL::ELogLevel::LInfo)
             << mp_modbusMaster->portName() << " Opened";
+}
+
+bool CBcSerialThread::reOpenPort()
+{
+    mp_modbusMaster->close();
+    if (!mp_modbusMaster->open(QIODevice::ReadWrite))
+    {
+         CBcLogger::instance()->print(MLL::ELogLevel::LCritical)
+                 << "Cannot open serial port " << mp_modbusMaster->portName();
+         return false;
+    }
+
+    CBcLogger::instance()->print(MLL::ELogLevel::LInfo)
+            << "Serial port " << mp_modbusMaster->portName() << " reopened";
+    return true;
 }
 
 /*!
@@ -107,16 +125,16 @@ void CBcSerialThread::on_responseReady_ReadHoldingRegisters(const quint8 slaveId
                                  slaveId, startAddr, registers.size());
 
     // check if this is ping
-    switch ((EAddrCodes)startAddr)
+    switch ((EAddrCodesLC)startAddr)
     {
-        case EAddrCodes::Ping:
+        case EAddrCodesLC::Ping:
         {
             // manage
             m_slaves[slaveId - 1]->managePresence(true);
             break;
         }
 
-        case EAddrCodes::UniqId:
+        case EAddrCodesLC::UniqId:
         {
             m_slaves[slaveId - 1]->sendGetCmdToClients(tcpCmd::takeUniqId, registers);
             break;
@@ -130,7 +148,19 @@ void CBcSerialThread::on_responseReady_ReadHoldingRegisters(const quint8 slaveId
 
     // slave device related command. Different for LC and different for BAT.
     responseReady_ReadHoldingRegistersOverride(slaveId, startAddr, registers);
+    mp_pollTimer->start();
+}
 
+void CBcSerialThread::on_responseReady_WriteSingleCoil(const quint8 slaveId,
+                                                       const quint16 addr,
+                                                       const bool val)
+{
+    mp_respToutTimer->stop();
+    CBcLogger::instance()->print(MLL::ELogLevel::LInfo,
+                                 "Write single coil response. SID:%u, SADDR:%u, STATE:%u",
+                                 slaveId, addr, val);
+
+    responseReady_WriteSingleCoil(slaveId, addr, val);
     mp_pollTimer->start();
 }
 
@@ -146,8 +176,17 @@ void CBcSerialThread::responseReady_ReadHoldingRegistersOverride(const quint8 sl
                                                         const QVector<quint16>& registers)
 {
     CBcLogger::instance()->print(MLL::ELogLevel::LCritical,
-                                 "Read holding registers response NOT OVERRIDEN. SID:%u, SADDR:%u, NOOFREGS:%u",
-                                 slaveId, startAddr, registers.size());
+        "Read holding registers response NOT OVERRIDEN. SID:%u, SADDR:%u, NOOFREGS:%u",
+         slaveId, startAddr, registers.size());
+}
+
+void CBcSerialThread::responseReady_WriteSingleCoil(const quint8 slaveId,
+                                                    const quint16 addr,
+                                                    const bool val)
+{
+    CBcLogger::instance()->print(MLL::ELogLevel::LCritical,
+        "Write single coil response NOT OVERRIDEN. SID:%u, SADDR:%u, STATE:%u",
+        slaveId, addr, val);
 }
 
 void CBcSerialThread::on_responseReady_ReadCoils(const quint8 slaveId,
@@ -171,23 +210,50 @@ void CBcSerialThread::on_sendData2ModbusSlave(const tcpReq req,
     {
         case EDeviceTypes::LineCtrler:
         {
-            quint16 rcOffset = (pv.size() - 1) * 0xFF; // ie 0x100 is addr 1 for RC 1
+            m_rcOffset = 0;
+            if (pv.size() > 1)
+                m_rcOffset = pv.last()->m_slaveAddr * 0xFF; // ie 0x100 is addr 1 for RC 1
 
             switch (cmd)
             {
                 case tcpCmd::takeUniqId:
                 {
                     if (req != tcpReq::get)
-                        CBcLogger::instance()->print(MLL::ELogLevel::LCritical, "Unique Id is read only!");
+                        CBcLogger::instance()->print(MLL::ELogLevel::LCritical,
+                                                     "Cant write read only register takeUniqId!");
                     else
                     {
                         // read registers
                         mp_modbusMaster->sendRequest_ReadHoldingRegisters(pv.first()->m_slaveAddr,
-                            (quint16)EAddrCodes::UniqId + rcOffset, NO_OF_UNIQDID_REG);
+                            (quint16)EAddrCodesLC::UniqId + m_rcOffset, NO_OF_UNIQDID_REG);
+                    }
+                    break;
+                }
 
-                        // start response timeout timer
-                        mp_respToutTimer->start();
-                        mp_pollTimer->stop();
+                case tcpCmd::takeStatus:
+                {
+                    if (req != tcpReq::get)
+                        CBcLogger::instance()->print(MLL::ELogLevel::LCritical,
+                                                     "Cant write read only register takeStatus!");
+                    else
+                    {
+                        // read registers
+                        mp_modbusMaster->sendRequest_ReadHoldingRegisters(pv.first()->m_slaveAddr,
+                            (quint16)EAddrCodesRC::Status + m_rcOffset, NO_OF_STATUS_REGS);
+                    }
+                    break;
+                }
+
+                case tcpCmd::setRcBit:
+                {
+                    if (req != tcpReq::set)
+                        CBcLogger::instance()->print(MLL::ELogLevel::LCritical,
+                                                    "Cant read write only coil setRcBit!");
+                    else
+                    {
+                        // write single coil
+                        mp_modbusMaster->sendRequest_WriteSingleCoil(pv.first()->m_slaveAddr,
+                            (quint16)ECoilAddrCodesRc::Relay + m_rcOffset, data[0]);
                     }
                     break;
                 }
@@ -218,24 +284,27 @@ void CBcSerialThread::on_pollTimeout()
     // ping only if no more messages pending
     if (!mp_modbusMaster->txFrameQueue()->size())
     {
-        // check slave overflow, scan one slave at a time
-        if (m_curScanDev >= m_noOfDev2Scan)
-            m_curScanDev = 1;
-        else
-            m_curScanDev++;
+        if (m_curPing < MAX_PINGS)
+        {
+            m_curPing++;
 
-        //m_curScanDev = 100;
+            // check slave overflow, scan one slave at a time
+            if (m_curScanDev >= m_noOfDev2Scan)
+                m_curScanDev = 1;
+            else
+                m_curScanDev++;
 
-        // read registers
-        mp_modbusMaster->sendRequest_ReadHoldingRegisters(
-            m_curScanDev, (quint16)EAddrCodes::Ping, NO_OF_PING_REGS);
+            // read registers
+            mp_modbusMaster->sendRequest_ReadHoldingRegisters(
+                m_curScanDev, (quint16)EAddrCodesLC::Ping, NO_OF_PING_REGS);
+        }
     }
 
     // dequeue and send
-    mp_modbusMaster->on_newTxFrameEnqueued();
-
-    // start response timeout timer
-    mp_respToutTimer->start();
+    if (mp_modbusMaster->newTxFrameEnqueued())
+        mp_respToutTimer->start(); // start response timeout timer
+    else
+        mp_pollTimer->start();
 }
 
 /*!
@@ -249,19 +318,20 @@ void CBcSerialThread::on_respTimeout()
     {
         // ping address
         quint16 addr = (mp_modbusMaster->txFrame().data[0] << 8) | mp_modbusMaster->txFrame().data[1];
-        if ((quint16)EAddrCodes::Ping == addr)
+        if ((quint16)EAddrCodesLC::Ping == addr)
         {
             // proper slave
             if (m_curScanDev == mp_modbusMaster->txFrame().slaveAddr)
             {
                 // manage
-                m_slaves[mp_modbusMaster->txFrame().slaveAddr - 1]->managePresence(false);
+                if (m_slaves[mp_modbusMaster->txFrame().slaveAddr - 1]->managePresence(false))
+                    reOpenPort();
             }
             else
             {
                 CBcLogger::instance()->print(MLL::ELogLevel::LWarning,
-                                             "Wrong slave answered in ping %u, should be %u",
-                                             mp_modbusMaster->txFrame().slaveAddr, m_curScanDev);
+                    "Wrong slave answered in ping %u, should be %u",
+                    mp_modbusMaster->txFrame().slaveAddr, m_curScanDev);
             }
         }
     }
@@ -291,11 +361,11 @@ void CBcSerialThread::run()
 
     // set resp timeout timer
     mp_respToutTimer->setSingleShot(true);
-    mp_respToutTimer->setInterval(200);
+    mp_respToutTimer->setInterval(1000);
 
     // set and start poll timer
     mp_pollTimer->setSingleShot(true);
-    mp_pollTimer->setInterval(500);
+    mp_pollTimer->setInterval(300);
     mp_pollTimer->start();
 
     exec();

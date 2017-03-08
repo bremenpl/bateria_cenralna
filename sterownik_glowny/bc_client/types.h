@@ -31,6 +31,8 @@ enum class tcpCmd
     dummy           = 0,
     presenceChanged = 1,
     takeUniqId      = 2,
+    takeStatus      = 3,
+    setRcBit        = 4,
 };
 
 enum class tcpReq
