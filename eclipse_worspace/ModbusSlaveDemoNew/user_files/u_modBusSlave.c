@@ -324,7 +324,7 @@ void mbs_rxFrameHandle(mbsUart_t* const mbsu)
 
 			case e_mbFuncCode_WriteSingleCoil:
 			{
-				exCode = mbs_CheckWriteSingleCoil(mf);
+				exCode = mbs_CheckWriteSingleCoil(mbsu, mf);
 				break;
 			}
 
@@ -430,7 +430,8 @@ __attribute__((weak)) mbgExCode_t mbs_CheckReadCoils(mbgFrame_t* mf)
  * @param	mf: pointer to a modbus frame struct.
  * @return  exception code, 0 if function executed properly.
  */
-__attribute__((weak)) mbgExCode_t mbs_CheckWriteSingleCoil(mbgFrame_t* mf)
+__attribute__((weak)) mbgExCode_t mbs_CheckWriteSingleCoil(const mbsUart_t* const mbs,
+		mbgFrame_t* mf)
 {
 	return e_mbsExCode_illegalDataAddr;
 }

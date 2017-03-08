@@ -33,7 +33,6 @@ void mbm_digForFrames(mbmUart_t* m, const uint8_t byte);
 void mbm_rxFrameHandle(mbmUart_t* const mbmu);
 HAL_StatusTypeDef mbm_RespTimeoutRestart(mbmUart_t* mbmu);
 HAL_StatusTypeDef mbm_RespTimeoutStop(mbmUart_t* mbmu);
-HAL_StatusTypeDef mbm_Resend(mbmUart_t* mbmu);
 
 /* Function declarations -----------------------------------------------------*/
 
@@ -75,7 +74,7 @@ HAL_StatusTypeDef mbm_Init(mbmUart_t* mbmu, size_t noOfModules)
 		retVal += mbg_UartInit(&m->mbg);
 
 		// reinitialize master timeout
-		m->toutQ.timeout_ms = m->mbg.mbTimeout_ms * 4;
+		m->toutQ.timeout_ms = m->mbg.mbTimeout_ms * 5;
 
 		// create slave responses reception queue.
 		msgDef_temp.item_sz = sizeof(uint32_t);
@@ -258,16 +257,6 @@ HAL_StatusTypeDef mbm_RequestWriteSingleCoil(mbmUart_t* mbmu,
 	}
 
 	return HAL_OK;
-}
-
-/*
- * @brief	Resends the last modbus request
- */
-HAL_StatusTypeDef mbm_Resend(mbmUart_t* mbmu)
-{
-	assert_param(mbmu);
-
-
 }
 
 /*
@@ -491,6 +480,12 @@ void mbm_rxFrameHandle(mbmUart_t* const mbmu)
 				break;
 			}
 
+			case e_mbFuncCode_WriteSingleCoil:
+			{
+				mbm_CheckWriteSingleCoil(mbmu, mf);
+				break;
+			}
+
 			default:
 			{
 				// should not happen
@@ -643,6 +638,14 @@ __attribute__((weak)) void mbm_RespCrcMatchError(uint16_t rcvCrc, uint16_t calcC
  * @param	mf: pointer to a modbus frame struct.
  */
 __attribute__((weak)) void mbm_CheckReadHoldingRegisters(const mbmUart_t* const mbm,
+		const mbgFrame_t* const mf) { }
+
+/*
+ * @brief	The default read write single coil response function.
+ * @param	mbm: master module pointer.
+ * @param	mf: pointer to a modbus frame struct.
+ */
+__attribute__((weak)) void mbm_CheckWriteSingleCoil(const mbmUart_t* const mbm,
 		const mbgFrame_t* const mf) { }
 
 

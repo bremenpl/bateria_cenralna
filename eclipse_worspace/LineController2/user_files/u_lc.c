@@ -77,7 +77,7 @@ HAL_StatusTypeDef lc_Init()
 
 	// default parameters
 	lc_setLampsEnable(true);
-	lc_AcOn(true);
+	//lc_AcOn(true);
 
 	return retVal;
 }
@@ -92,17 +92,27 @@ void lc_pingTask(void const* argument)
 
 	// get the pointer
 	lc_t* l = (lc_t*)argument;
-	uint32_t i, addr;
+	uint32_t i, addr, curPing = 0;
 
 	osDelay(1000);
 
 	while (1)
 	{
+		if (curPing < LC_PINGS_TILL_PRESENT + 2)
+		{
+			curPing++;
+			log_PushLine(e_logLevel_Debug, "Ping %u/%u", curPing, LC_PINGS_TILL_PRESENT);
+		}
+		else
+		{
+			log_PushLine(e_logLevel_Debug, "Suspending ping thread");
+			osThreadSuspend(0); // no need to ping anymore
+		}
+
 		// ping loop
-		for (i = 0, addr = 1; i < LC_NO_OF_RCS; i++, addr++)
+		for (i = 0, addr = 1; i < 5 /*LC_NO_OF_RCS*/; i++, addr++)
 		{
 			osDelay(l->mbm.toutQ.timeout_ms);
-
 
 			// take RC access semaphore
 			osSemaphoreWait(l->rcAccesSem, osWaitForever);
@@ -269,7 +279,7 @@ void mbm_CheckReadHoldingRegisters(const mbmUart_t* const mbm, const mbgFrame_t*
 			if (!mbm->delegate)
 			{
 				// check if it was ping
-				if (startAddr == e_rcRegMap_Status)
+				if (startAddr == 0)
 				{
 					if (osOK != osMessagePut(lc[i].msgQId_Ping,
 							(uint32_t)&lc[i].rcResp, LC_RESP_QUEUE_TIMEOUT))
@@ -288,9 +298,47 @@ void mbm_CheckReadHoldingRegisters(const mbmUart_t* const mbm, const mbgFrame_t*
 	}
 }
 
+void mbm_CheckWriteSingleCoil(const mbmUart_t* const mbm, const mbgFrame_t* const mf)
+{
+	assert_param(mbm);
+	assert_param(mf);
+
+	// enqueue the response, find the master
+	for (uint32_t i = 0; i < LC_NO_OF_MODULES; i++)
+	{
+		if ((mbm == &lc[i].mbm) &&
+				(mbm->sendFrame.code == e_mbFuncCode_WriteSingleCoil))
+		{
+			// start address
+			//uint16_t outputAddr =
+					//mbm->sendFrame.data[1] | ((uint16_t)mbm->sendFrame.data[0] << 8);
+
+			// copy data
+			lc[i].rcResp.mbm = mbm;
+			lc[i].rcResp.rcRespFrame = *mf;
+			lc[i].rcResp.timeout = false;
+
+			// check if request to LC
+			if (!mbm->delegate)
+			{
+				log_PushLine(e_logLevel_Critical,
+						"Unhandled WriteSingleCoil response for LC");
+			}
+
+			// otherwise delegate
+			else
+				mbg_SendFrame(&lc[i].mbs.mbg, &lc[i].rcResp.rcRespFrame);
+
+			// allow access to RC
+			osSemaphoreRelease(lc[i].rcAccesSem);
+		}
+	}
+}
+
 mbgExCode_t mbs_CheckReadHoldingRegisters(const mbsUart_t* const mbs, mbgFrame_t* mf)
 {
 	assert_param(mf);
+	assert_param(mbs);
 	mbgExCode_t retVal = e_mbsExCode_illegalDataAddr;
 	uint32_t k;
 	lc_t* l = 0;
@@ -320,7 +368,7 @@ mbgExCode_t mbs_CheckReadHoldingRegisters(const mbsUart_t* const mbs, mbgFrame_t
 	mf->dataLen = mf->data[0] + 1; // 1 for byte count
 
 	// check if request for LC
-	if (startAddr <= 0xFF)
+	if (startAddr < 0xFF)
 	{
 		switch (startAddr)
 		{
@@ -370,6 +418,53 @@ mbgExCode_t mbs_CheckReadHoldingRegisters(const mbsUart_t* const mbs, mbgFrame_t
 		// read the status register
 		if (mbm_RequestReadHoldingRegs(
 				&l->mbm, startAddr / 0xFF, startAddr % 0xFF, nrOfRegs))
+			return HAL_ERROR;
+
+		l->mbm.delegate = true;
+		retVal = e_mbsExCode_delegate;
+	}
+
+	return retVal;
+}
+
+mbgExCode_t mbs_CheckWriteSingleCoil(const mbsUart_t* const mbs, mbgFrame_t* mf)
+{
+	assert_param(mf);
+	assert_param(mbs);
+	mbgExCode_t retVal = e_mbsExCode_illegalDataAddr;
+	uint32_t k;
+	lc_t* l = 0;
+
+	// find object
+	for (k = 0; k < LC_NO_OF_MODULES; k++)
+	{
+		if (mbs == &lc[k].mbs)
+		{
+			l = &lc[k];
+			break;
+		}
+	}
+
+	if (!l)
+		return retVal;
+
+	// start address
+	uint16_t outputAddr = mf->data[1] | ((uint16_t)mf->data[0] << 8);
+
+	// coil state
+	bool state = mf->data[2] ? true : false;
+
+	if (outputAddr < 0xFF) // msg for LC
+	{
+		// Add code if needed
+	}
+	else
+	{
+		osSemaphoreWait(l->rcAccesSem, osWaitForever);
+
+		// read the status register
+		if (mbm_RequestWriteSingleCoil(
+				&l->mbm, outputAddr / 0xFF, outputAddr % 0xFF, state))
 			return HAL_ERROR;
 
 		l->mbm.delegate = true;
@@ -436,21 +531,21 @@ void mbm_RespRxTimeoutError(mbmUart_t* const mbm)
 			uint16_t startAddr =
 					mbm->sendFrame.data[1] | ((uint16_t)mbm->sendFrame.data[0] << 8);
 
-			// check if it was ping
+			// copy data
+			lc[i].rcResp.mbm = mbm;
+			lc[i].rcResp.timeout = true;
+
+			//check if it was ping
 			if ((mbm->sendFrame.code == e_mbFuncCode_ReadHoldingRegisters) &&
 					(startAddr == e_rcRegMap_Status))
 			{
-				// copy data
-				lc[i].rcResp.mbm = mbm;
-				lc[i].rcResp.timeout = true;
-
 				if (osOK != osMessagePut(lc[i].msgQId_Ping,
 						(uint32_t)&lc[i].rcResp, LC_RESP_QUEUE_TIMEOUT))
 					log_PushLine(e_logLevel_Warning, "Unable to enque the response");
-
-				// allow access to RC
-				osSemaphoreRelease(lc[i].rcAccesSem);
 			}
+
+			// allow access to RC
+			osSemaphoreRelease(lc[i].rcAccesSem);
 		}
 	}
 }

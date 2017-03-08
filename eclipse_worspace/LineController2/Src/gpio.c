@@ -87,8 +87,14 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PBPin PBPin PBPin */
-  GPIO_InitStruct.Pin = ACnDC_Pin|ERROR_Pin|LAMPSEN_Pin;
+  /*Configure GPIO pin : PtPin */
+  GPIO_InitStruct.Pin = ACnDC_TEMP_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(ACnDC_TEMP_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PBPin PBPin */
+  GPIO_InitStruct.Pin = ERROR_Pin|LAMPSEN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -101,7 +107,7 @@ void MX_GPIO_Init(void)
   HAL_GPIO_Init(ENCB1_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, ACnDC_Pin|ERROR_Pin|LAMPSEN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, ERROR_Pin|LAMPSEN_Pin, GPIO_PIN_RESET);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI0_1_IRQn, 3, 0);

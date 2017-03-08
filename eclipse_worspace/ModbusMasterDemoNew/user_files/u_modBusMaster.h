@@ -60,6 +60,7 @@ void mbm_RespRxTimeoutError(mbmUart_t* const mbm);
 void mbm_RespCrcMatchError(uint16_t rcvCrc, uint16_t calcCrc);
 
 void mbm_CheckReadHoldingRegisters(const mbmUart_t* const mbm, const mbgFrame_t* const mf);
+void mbm_CheckWriteSingleCoil(const mbmUart_t* const mbm, const mbgFrame_t* const mf);
 
 /* Function declarations -----------------------------------------------------*/
 

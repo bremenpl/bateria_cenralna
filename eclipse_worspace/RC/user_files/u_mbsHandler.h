@@ -19,6 +19,12 @@
 #define 	REL_LED_GPIO		GPIOA
 #define 	REL_LED_PIN			GPIO_PIN_4
 
+#define		CURDET_GPIO			GPIOA
+#define		CURDET_PIN			GPIO_PIN_3
+
+#define		CURFLOW_SAMPLES_MAX	1000
+#define		CURFLOW_POS_SAMPLES	5
+
 
 /* Enums and structs ---------------------------------------------------------*/
 
@@ -56,6 +62,7 @@ typedef enum
 	e_rcStatusMask_RelayStateR			= 0,
 	e_rcStatusMask_PowerSourceR			= 1,
 	e_rcStatusMask_BlackoutBehaviorR	= 2,
+	e_rcStatusMask_CurrentDetectedR		= 3,
 
 } rcStatusMaskR_t;
 
@@ -63,6 +70,7 @@ typedef enum
 {
 	e_rcStatusMask_RelayStateW			= 0,
 	e_rcStatusMask_BlackoutBehaviorW	= 1,
+
 
 } rcStatusMaskW_t;
 

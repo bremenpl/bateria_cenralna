@@ -23,11 +23,17 @@ static uint16_t* rcSetting;
 static uint16_t* rcUniqId;
 static uint16_t* rcUserString;
 
+osThreadId		 rcWorkerId;
+uint32_t		 rcCurCurSample;
+uint32_t		 rcPositiveSamples;
+bool			 rcStatusChanged;
+
 /* Public variables ----------------------------------------------------------*/
 
 /* Fuction prototypes --------------------------------------------------------*/
 mbgExCode_t rc_SetRegisterBit(const uint16_t coil, const uint16_t value);
 void rc_UpdateRegChanges(const uint16_t reg);
+void task_workerThread(void const* argument);
 
 /* Function declarations -----------------------------------------------------*/
 
@@ -68,6 +74,11 @@ void mbsHandler_Init()
 
 	for (uint32_t i = e_rcRegMap_StringFirst; i <= e_rcRegMap_StringLast; i++)
 		rcRegMap.access[i] = e_rcAccessType_RW;
+
+	// create worker thread for measurements
+	osThreadDef(workerTask, task_workerThread, osPriorityNormal, 1, 128);
+	rcWorkerId = osThreadCreate(osThread(workerTask), 0);
+	assert_param(rcWorkerId);
 
 	rcUserString = rcRegMap.reg + e_rcRegMap_StringFirst;
 }
@@ -129,15 +140,13 @@ void rc_UpdateRegChanges(const uint16_t reg)
 			if (rcRegMap.reg[reg] & (1 << e_rcStatusMask_RelayStateW))
 			{
 				rcRegMap.reg[e_rcRegMap_Status] |= 1 << e_rcStatusMask_RelayStateR;
-				HAL_GPIO_WritePin(REL_LED_GPIO, REL_LED_PIN, 1);
+				//HAL_GPIO_WritePin(REL_LED_GPIO, REL_LED_PIN, 1);
 			}
 			else
 			{
 				rcRegMap.reg[e_rcRegMap_Status] &= ~(1 << e_rcStatusMask_RelayStateR);
-				HAL_GPIO_WritePin(REL_LED_GPIO, REL_LED_PIN, 0);
+				//HAL_GPIO_WritePin(REL_LED_GPIO, REL_LED_PIN, 0);
 			}
-
-			// TODO: change the state of that relay
 
 			// blackout behavior
 			if (rcRegMap.reg[reg] & (1 << e_rcStatusMask_BlackoutBehaviorW))
@@ -145,12 +154,52 @@ void rc_UpdateRegChanges(const uint16_t reg)
 			else
 				rcRegMap.reg[e_rcRegMap_Status] &= ~(1 << e_rcStatusMask_BlackoutBehaviorR);
 
-			// TODO: change current behavior if?
-
 			break;
 		}
 
 		default: { } // some registers changes dont trigger anything
+	}
+
+	rcStatusChanged = true;
+}
+
+void task_workerThread(void const* argument)
+{
+	HAL_GPIO_WritePin(REL_LED_GPIO, REL_LED_PIN, 0);
+
+	while (1)
+	{
+
+		// check current flow
+		if (rcCurCurSample < CURFLOW_SAMPLES_MAX)
+		{
+			if (HAL_GPIO_ReadPin(CURDET_GPIO, CURDET_PIN)) // flowing
+				rcPositiveSamples++;
+
+			rcCurCurSample++;
+		}
+		else
+		{
+			// check how to set status register
+			if (rcPositiveSamples >= CURFLOW_POS_SAMPLES)
+				rcRegMap.reg[e_rcRegMap_Status] |= 1 << e_rcStatusMask_CurrentDetectedR;
+			else
+				rcRegMap.reg[e_rcRegMap_Status] &= ~(1 << e_rcStatusMask_CurrentDetectedR);
+
+			rcCurCurSample = 0;
+			rcPositiveSamples = 0;
+		}
+
+		// check relay delay
+		if (rcStatusChanged)
+		{
+			rcStatusChanged = false;
+			osDelay(150);
+			HAL_GPIO_WritePin(REL_LED_GPIO, REL_LED_PIN,
+					rcRegMap.reg[e_rcRegMap_Status] & (1 << e_rcStatusMask_RelayStateR));
+		}
+
+		osDelay(1);
 	}
 }
 
@@ -262,9 +311,9 @@ mbgExCode_t mbs_CheckReadCoils(mbgFrame_t* mf)
 
 /*
  * @brief	Override function for handling incoming modbus requests
- * 			from the master device.
+ * 			from the master device.S
  */
-mbgExCode_t mbs_CheckWriteSingleCoil(mbgFrame_t* mf)
+mbgExCode_t mbs_CheckWriteSingleCoil(const mbsUart_t* const mbs, mbgFrame_t* mf)
 {
 	if (!mf) return e_mbsExCode_illegalDataAddr;
 
@@ -278,6 +327,26 @@ mbgExCode_t mbs_CheckWriteSingleCoil(mbgFrame_t* mf)
 
 	return rc_SetRegisterBit(outAddr, outVal);
 }
+
+/*
+ * @brief	Detect current here
+ */
+/*void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	if (CURDET_PIN == GPIO_Pin) // current detect
+	{
+		static uint32_t test = 0;
+
+		if (HAL_GPIO_ReadPin(CURDET_GPIO, CURDET_PIN)) // rising
+		{
+			test++;
+		}
+		else // falling
+		{
+			test--;
+		}
+	}
+}*/
 
 
 
