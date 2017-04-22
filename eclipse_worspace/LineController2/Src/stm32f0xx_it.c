@@ -47,11 +47,11 @@ extern ADC_HandleTypeDef hadc;
 extern I2C_HandleTypeDef hi2c1;
 extern TIM_HandleTypeDef htim6;
 extern TIM_HandleTypeDef htim7;
+extern TIM_HandleTypeDef htim14;
+extern TIM_HandleTypeDef htim16;
 extern DMA_HandleTypeDef hdma_usart1_tx;
-extern DMA_HandleTypeDef hdma_usart2_tx;
 extern DMA_HandleTypeDef hdma_usart3_tx;
 extern UART_HandleTypeDef huart1;
-extern UART_HandleTypeDef huart2;
 extern UART_HandleTypeDef huart3;
 
 /******************************************************************************/
@@ -124,20 +124,6 @@ void EXTI0_1_IRQHandler(void)
 }
 
 /**
-* @brief This function handles DMA1 channel 2 to 3 and DMA2 channel 1 to 2 interrupts.
-*/
-void DMA1_Ch2_3_DMA2_Ch1_2_IRQHandler(void)
-{
-  /* USER CODE BEGIN DMA1_Ch2_3_DMA2_Ch1_2_IRQn 0 */
-
-  /* USER CODE END DMA1_Ch2_3_DMA2_Ch1_2_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_usart2_tx);
-  /* USER CODE BEGIN DMA1_Ch2_3_DMA2_Ch1_2_IRQn 1 */
-
-  /* USER CODE END DMA1_Ch2_3_DMA2_Ch1_2_IRQn 1 */
-}
-
-/**
 * @brief This function handles DMA1 channel 4 to 7 and DMA2 channel 3 to 5 interrupts.
 */
 void DMA1_Ch4_7_DMA2_Ch3_5_IRQHandler(void)
@@ -195,6 +181,34 @@ void TIM7_IRQHandler(void)
 }
 
 /**
+* @brief This function handles TIM14 global interrupt.
+*/
+void TIM14_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM14_IRQn 0 */
+
+  /* USER CODE END TIM14_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim14);
+  /* USER CODE BEGIN TIM14_IRQn 1 */
+
+  /* USER CODE END TIM14_IRQn 1 */
+}
+
+/**
+* @brief This function handles TIM16 global interrupt.
+*/
+void TIM16_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM16_IRQn 0 */
+
+  /* USER CODE END TIM16_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim16);
+  /* USER CODE BEGIN TIM16_IRQn 1 */
+
+  /* USER CODE END TIM16_IRQn 1 */
+}
+
+/**
 * @brief This function handles I2C1 event global interrupt / I2C1 wake-up interrupt through EXTI line 23.
 */
 void I2C1_IRQHandler(void)
@@ -224,20 +238,6 @@ void USART1_IRQHandler(void)
   /* USER CODE BEGIN USART1_IRQn 1 */
 
   /* USER CODE END USART1_IRQn 1 */
-}
-
-/**
-* @brief This function handles USART2 global interrupt / USART2 wake-up interrupt through EXTI line 26.
-*/
-void USART2_IRQHandler(void)
-{
-  /* USER CODE BEGIN USART2_IRQn 0 */
-
-  /* USER CODE END USART2_IRQn 0 */
-  HAL_UART_IRQHandler(&huart2);
-  /* USER CODE BEGIN USART2_IRQn 1 */
-
-  /* USER CODE END USART2_IRQn 1 */
 }
 
 /**

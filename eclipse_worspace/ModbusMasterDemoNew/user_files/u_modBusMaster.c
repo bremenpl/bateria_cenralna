@@ -70,7 +70,7 @@ HAL_StatusTypeDef mbm_Init(mbmUart_t* mbmu, size_t noOfModules)
 		// assign parameter variables
 		mbm_u[i] = m;
 
-		// init the generic uart module
+		// init the generic uart module or plc module
 		retVal += mbg_UartInit(&m->mbg);
 
 		// reinitialize master timeout

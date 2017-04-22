@@ -38,6 +38,12 @@
 #define LC_NACFAIL_GPIO			GPIOA
 #define LC_NACFAIL_PIN			GPIO_PIN_1
 
+#define LC_PLC_OUT_GPIO			GPIOA
+#define LC_PLC_OUT_PIN			GPIO_PIN_2
+
+#define LC_PLC_IN_GPIO			GPIOA
+#define LC_PLC_IN_PIN			GPIO_PIN_3
+
 #define LC_ACNDC_GPIO			GPIOB
 #define LC_ACNDC_PIN			GPIO_PIN_1
 

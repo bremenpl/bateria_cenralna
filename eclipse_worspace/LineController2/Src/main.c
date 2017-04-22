@@ -103,11 +103,12 @@ int main(void)
   MX_RTC_Init();
   MX_ADC_Init();
   MX_USART1_UART_Init();
-  MX_USART2_UART_Init();
   MX_I2C1_Init();
   MX_USART3_UART_Init();
   MX_TIM6_Init();
   MX_TIM7_Init();
+  MX_TIM14_Init();
+  MX_TIM16_Init();
 
   /* USER CODE BEGIN 2 */
 
@@ -119,13 +120,30 @@ int main(void)
 
     // MASTER
     // modbus rx timer and char time
-    lc[0].mbm.mbg.rxQ.toutTim = &htim6;
+    lc[0].mbm.mbg.rxQ.toutTim = &htim16;
     lc[0].mbm.mbg.rxQ.T35 = 3.5f;
 
-    // set uart handle
-    lc[0].mbm.mbg.handle = &huart2;
+    lc[0].mbm.mbg.modType = e_mbgModuleType_Plc;
+    lc[0].mbm.mbg.plcm.timHandleSync = &htim6;
+    lc[0].mbm.mbg.plcm.timHandleBits = &htim7;
 
-    mbm_Init(&lc[0].mbm, LC_NO_OF_MODULES);
+    lc[0].mbm.mbg.plcm.strobe = 1;
+    lc[0].mbm.mbg.plcm.zCgpio = LC_NACFAIL_GPIO;
+    lc[0].mbm.mbg.plcm.zCpin = LC_NACFAIL_PIN;
+
+    lc[0].mbm.mbg.plcm.plcIngpio = LC_PLC_IN_GPIO;
+    lc[0].mbm.mbg.plcm.plcInpin = LC_PLC_IN_PIN;
+
+    lc[0].mbm.mbg.plcm.plcOutgpio = LC_PLC_OUT_GPIO;
+    lc[0].mbm.mbg.plcm.plcOutpin = LC_PLC_OUT_PIN;
+
+    lc[0].mbm.mbg.plcm.devType = e_plcDevType_Master;
+    lc[0].mbm.mbg.plcm.devBeh = e_plcMasBeh_UseZcAndNoZc;
+
+    if (mbm_Init(&lc[0].mbm, LC_NO_OF_MODULES))
+    {
+    	while (1); // lock mcu
+    }
 
     // SLAVE
     // create slave address (device specific)
@@ -161,8 +179,10 @@ int main(void)
     // set uart handle
     lc[0].mbs.mbg.handle = &huart1;
 
+    lc[0].mbs.mbg.modType = e_mbgModuleType_Uart;
+
     // modbus rx timer and char time
-    lc[0].mbs.mbg.rxQ.toutTim = &htim7;
+    lc[0].mbs.mbg.rxQ.toutTim = &htim14;
     lc[0].mbs.mbg.rxQ.T35 = 3.5f;
 
     mbs_Init(&lc[0].mbs, LC_NO_OF_MODULES);
@@ -235,10 +255,8 @@ void SystemClock_Config(void)
   }
 
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART3|RCC_PERIPHCLK_USART1
-                              |RCC_PERIPHCLK_USART2|RCC_PERIPHCLK_I2C1
-                              |RCC_PERIPHCLK_RTC;
+                              |RCC_PERIPHCLK_I2C1|RCC_PERIPHCLK_RTC;
   PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK1;
-  PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
   PeriphClkInit.Usart3ClockSelection = RCC_USART3CLKSOURCE_PCLK1;
   PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_HSI;
   PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;

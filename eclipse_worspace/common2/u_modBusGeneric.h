@@ -21,6 +21,7 @@
 
 #include "cmsis_os.h"
 #include "stdbool.h"
+#include "u_plcMaster.h"
 
 /* Defines and macros --------------------------------------------------------*/
 #define MBG_MAX_DATA_LEN				252
@@ -107,12 +108,21 @@ typedef struct
 
 } mbgFrame_t;
 
+typedef enum
+{
+	e_mbgModuleType_Uart	= 0,
+	e_mbgModuleType_Plc		= 1,
+} mbgModuleType_t;
+
 /*
  * @brief	Generic modbus substruct containing data for modbus master/ slave operation.
  */
 typedef struct
 {
+	mbgModuleType_t		modType;				/*!< Regular uart or plc module */
 	UART_HandleTypeDef* handle;					/*!< Pointer to a uart struct */
+	plcm_t				plcm;					/*!< PLC module */
+	uint32_t			plcId;					/*!< PLC module ID after init */
 	uint8_t 			txbuf[MBG_MAX_FRAME_LEN];	/*!< Operations buffer (tx) */
 	uint32_t			len;						/*!< Actual buffer size */
 

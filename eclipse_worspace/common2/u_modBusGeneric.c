@@ -9,6 +9,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "u_modBusGeneric.h"
+#include "u_logger.h"
 #include <stdlib.h>
 
 /* Defines and macros --------------------------------------------------------*/
@@ -136,6 +137,9 @@ HAL_StatusTypeDef mbg_UartInit(mbgUart_t* uart)
 
 	HAL_StatusTypeDef retVal = HAL_OK;
 
+	if (e_mbgModuleType_Plc == uart->modType)
+		retVal += plcm_Init(&uart->plcm, &uart->plcId);
+
 	// Calculate Rx timeout timer overflow value
 	retVal += mbg_CalcRxTimeout(uart);
 
@@ -257,19 +261,41 @@ HAL_StatusTypeDef mbg_SendData(mbgUart_t* uart)
 {
 	assert_param(uart);
 
-	// disable receiving
-	mbg_DisableReceiver(uart);
-
 	if (!uart->len)
 		return HAL_OK; // nothing to send
 
 	HAL_StatusTypeDef retVal = HAL_OK;
 
-	// send with DMA
-	while (mbg_CheckSendStatus(uart->handle))
-		osDelay(1);
+	// disable receiving
+	mbg_DisableReceiver(uart);
 
-	retVal += HAL_UART_Transmit_DMA(uart->handle, uart->txbuf, uart->len);
+	if (e_mbgModuleType_Uart == uart->modType)
+	{
+		// send with DMA
+		while (mbg_CheckSendStatus(uart->handle))
+			osDelay(1);
+
+		retVal += HAL_UART_Transmit_DMA(uart->handle, uart->txbuf, uart->len);
+	}
+	else // PLC
+	{
+		// can initialize transmission only in idle state
+		if (e_plcState_Idle != uart->plcm.state)
+		{
+			log_PushLine(e_logLevel_Critical,
+					"Cannot transmit in PLC mode when state is %u", uart->plcm.state);
+			return HAL_ERROR;
+		}
+
+		if (e_plcSupplyType_Ac == uart->plcm.supply)
+			uart->plcm.state = e_plcState_SendWaitForNextZc;
+		else
+		{
+			uart->plcm.state = e_plcState_SendWaitForNextSyncTimeout;
+			// dodac funkcje startujaca timer
+		}
+	}
+
 	return retVal;
 }
 
@@ -283,20 +309,30 @@ HAL_StatusTypeDef mbg_CalcRxTimeout(mbgUart_t* mbg)
 {
 	assert_param(mbg);
 	assert_param(mbg->rxQ.toutTim);
-	assert_param(mbg->handle);
 	assert_param(mbg->rxQ.T35 != 0); // cant be 0
 
 	HAL_StatusTypeDef retVal = HAL_OK;
-	float F_mcu = HAL_RCC_GetHCLKFreq();
-	float baud = mbg->handle->Init.BaudRate;
-	float bits = 10; // 8 data bits + 1 start bit + 1 stop bit
+	float baud = 0, bits = 0;
 
-	// find out if need to extend bits
-	if (mbg->handle->Init.Parity != UART_PARITY_NONE)
-		bits++;
+	if (e_mbgModuleType_Uart == mbg->modType)
+	{
+		assert_param(mbg->handle);
 
-	if (mbg->handle->Init.StopBits == UART_STOPBITS_2)
-		bits++;
+		baud = mbg->handle->Init.BaudRate;
+		bits = 10; // 8 data bits + 1 start bit + 1 stop bit
+
+		// find out if need to extend bits
+		if (mbg->handle->Init.Parity != UART_PARITY_NONE)
+			bits++;
+
+		if (mbg->handle->Init.StopBits == UART_STOPBITS_2)
+			bits++;
+	}
+	else // plc
+	{
+		baud = 100; // 1 bit per 10 ms
+		bits = 8;
+	}
 
 	float bytesPerSec = baud / bits;
 	float F_mod = bytesPerSec / mbg->rxQ.T35;
@@ -305,38 +341,7 @@ HAL_StatusTypeDef mbg_CalcRxTimeout(mbgUart_t* mbg)
 	mbg->mbTimeout_ms = (1.0f / F_mod) * (1000 / portTICK_RATE_MS) + 1; // +1 to round up
 
 	// now find proper prescaller and period for \ref tim
-	uint16_t period[0xFF];
-	uint32_t prescaler = 0;
-
-	for (prescaler = 0; prescaler < 0xFF; prescaler++)
-		period[prescaler] = (F_mcu / ((prescaler + 1) * F_mod)) - 1;
-
-	float smallestError = 1.0f;
-	float calculatedFreq = 0;
-
-	uint32_t finalPrescaler = 0;
-	uint32_t finalPeriod = 0;
-
-	for (prescaler = 0; prescaler < 0xFF; prescaler++)
-	{
-		calculatedFreq = F_mcu / ((prescaler + 1) * (period[prescaler] + 1));
-		float temp = calculatedFreq - F_mod;
-
-		if (temp < 0)
-			temp *= -1;
-
-		if (temp < smallestError)
-		{
-			smallestError = temp;
-			finalPrescaler = prescaler;
-			finalPeriod = period[prescaler];
-		}
-	}
-
-	// assign calculated period and prescaller to the timer
-	mbg->rxQ.toutTim->Init.Prescaler = finalPrescaler;
-	mbg->rxQ.toutTim->Init.Period = finalPeriod;
-	retVal += HAL_TIM_Base_Init(mbg->rxQ.toutTim);
+	retVal += plcm_SetTimerFreq(F_mod, mbg->rxQ.toutTim);
 
 	assert_param(!retVal);
 	return retVal;
@@ -387,12 +392,16 @@ HAL_StatusTypeDef mbg_DisableRxTimer(mbgUart_t* uart)
 HAL_StatusTypeDef mbg_EnableReceiver(mbgUart_t* uart)
 {
 	assert_param(uart);
-	assert_param(uart->handle);
 	HAL_StatusTypeDef retVal = HAL_OK;
 
-	// enable receiving
-	SET_BIT(uart->handle->Instance->CR1, USART_CR1_RE);
-	retVal += HAL_UART_Receive_IT(uart->handle, &uart->rxQ.rxByte, 1);
+	if (e_mbgModuleType_Uart == uart->modType)
+	{
+		assert_param(uart->handle);
+
+		// enable receiving
+		SET_BIT(uart->handle->Instance->CR1, USART_CR1_RE);
+		retVal += HAL_UART_Receive_IT(uart->handle, &uart->rxQ.rxByte, 1);
+	}
 
 	return retVal;
 }
@@ -405,15 +414,19 @@ HAL_StatusTypeDef mbg_EnableReceiver(mbgUart_t* uart)
 HAL_StatusTypeDef mbg_DisableReceiver(mbgUart_t* uart)
 {
 	assert_param(uart);
-	assert_param(uart->handle);
 	HAL_StatusTypeDef retVal = HAL_OK;
 
 	// turn off rx timeout
 	retVal += mbg_DisableRxTimer(uart);
 
-	// disable receiving
-	CLEAR_BIT(uart->handle->Instance->CR1, USART_CR1_RE);
-	retVal += HAL_UART_AbortReceive(uart->handle);
+	if (e_mbgModuleType_Uart == uart->modType)
+	{
+		assert_param(uart->handle);
+
+		// disable receiving
+		CLEAR_BIT(uart->handle->Instance->CR1, USART_CR1_RE);
+		retVal += HAL_UART_AbortReceive(uart->handle);
+	}
 
 	return retVal;
 }
@@ -469,20 +482,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 	// check if MASTER handled
 	mbm_uartRxRoutine(huart);
-}
-
-/*
- * @brief	Uart RX timeout handle overwrite function for both master and slave modules.
- * 			Depending on which driver is used the proper function has to be
- * 			overwritten in master/ slave module.
- */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-	// check if SLAVE handled
-	mbs_uartRxTimeoutRoutine(htim);
-
-	// check if MASTER handled
-	mbm_uartRxTimeoutRoutine(htim);
 }
 
 /*

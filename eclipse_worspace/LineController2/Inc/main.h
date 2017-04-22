@@ -53,10 +53,14 @@
 
 #define nACFAIL_Pin GPIO_PIN_1
 #define nACFAIL_GPIO_Port GPIOA
+#define PLC_OUT_Pin GPIO_PIN_2
+#define PLC_OUT_GPIO_Port GPIOA
+#define PLC_IN_Pin GPIO_PIN_3
+#define PLC_IN_GPIO_Port GPIOA
 #define nLcMaster_Pin GPIO_PIN_0
 #define nLcMaster_GPIO_Port GPIOB
-#define ACnDC_TEMP_Pin GPIO_PIN_1
-#define ACnDC_TEMP_GPIO_Port GPIOB
+#define ACnDC_Pin GPIO_PIN_1
+#define ACnDC_GPIO_Port GPIOB
 #define ERROR_Pin GPIO_PIN_12
 #define ERROR_GPIO_Port GPIOB
 #define LAMPSEN_Pin GPIO_PIN_13

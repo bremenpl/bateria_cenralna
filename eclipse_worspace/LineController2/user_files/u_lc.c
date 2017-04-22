@@ -77,7 +77,7 @@ HAL_StatusTypeDef lc_Init()
 
 	// default parameters
 	lc_setLampsEnable(true);
-	//lc_AcOn(true);
+	lc_AcOn(true);
 
 	return retVal;
 }
@@ -98,7 +98,9 @@ void lc_pingTask(void const* argument)
 
 	while (1)
 	{
-		if (curPing < LC_PINGS_TILL_PRESENT + 2)
+		osDelay(10);
+
+		/*if (curPing < LC_PINGS_TILL_PRESENT + 2)
 		{
 			curPing++;
 			log_PushLine(e_logLevel_Debug, "Ping %u/%u", curPing, LC_PINGS_TILL_PRESENT);
@@ -110,7 +112,7 @@ void lc_pingTask(void const* argument)
 		}
 
 		// ping loop
-		for (i = 0, addr = 1; i < 5 /*LC_NO_OF_RCS*/; i++, addr++)
+		for (i = 0, addr = 1; i < LC_NO_OF_RCS; i++, addr++)
 		{
 			osDelay(l->mbm.toutQ.timeout_ms);
 
@@ -122,7 +124,7 @@ void lc_pingTask(void const* argument)
 
 			// maintain presence table for the master PC
 			lc_manageRcPresBits(l, i);
-		}
+		}*/
 	}
 }
 
@@ -575,16 +577,7 @@ void lc_AcOn(const bool val)
 	HAL_GPIO_WritePin(LC_ACNDC_GPIO, LC_ACNDC_PIN, (GPIO_PinState)val);
 }
 
-/*
- * @brief	External interrupts handler, used for #ACFAIL notification
- */
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-	if (GPIO_Pin == GPIO_PIN_1) // acfail
-	{
-		// do stuff
-	}
-}
+
 
 
 
