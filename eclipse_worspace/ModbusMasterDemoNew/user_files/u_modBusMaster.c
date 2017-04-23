@@ -26,13 +26,17 @@ static uint32_t mbm_mastersNr;
 
 void mbm_task_rxDequeue(void const* argument);
 void mbm_task_rxTimeout(void const* argument);
+
 mbmUart_t* mbm_GetModuleFromUart(UART_HandleTypeDef* uart);
 mbmUart_t* mbm_GetModuleFromTimer(TIM_HandleTypeDef* timer);
 mbmUart_t* mbm_GetModuleFromMbg(mbgUart_t* mbg);
+mbmUart_t* mbm_GetModuleFromPlc(plcm_t* plc);
+
 void mbm_digForFrames(mbmUart_t* m, const uint8_t byte);
 void mbm_rxFrameHandle(mbmUart_t* const mbmu);
 HAL_StatusTypeDef mbm_RespTimeoutRestart(mbmUart_t* mbmu);
 HAL_StatusTypeDef mbm_RespTimeoutStop(mbmUart_t* mbmu);
+HAL_StatusTypeDef mbm_TxDoneRoutine(mbmUart_t* mbmu);
 
 /* Function declarations -----------------------------------------------------*/
 
@@ -124,6 +128,25 @@ mbmUart_t* mbm_GetModuleFromUart(UART_HandleTypeDef* uart)
 	for (size_t i = 0; i < mbm_mastersNr; i++)
 	{
 		if (uart == mbm_u[i]->mbg.handle)
+			return mbm_u[i];
+	}
+
+	return 0;
+}
+
+/*
+ * @brief	If \ref plc is found in one of the master structs, the master struct
+ * 			in which it was found is returned. Otherwised zero is returned.
+ * @param	plc: handle
+ * @return	modbus master plc module pointer or zero.
+ */
+mbmUart_t* mbm_GetModuleFromPlc(plcm_t* plc)
+{
+	assert_param(plc);
+
+	for (size_t i = 0; i < mbm_mastersNr; i++)
+	{
+		if (plc == &mbm_u[i]->mbg.plcm)
 			return mbm_u[i];
 	}
 
@@ -540,7 +563,7 @@ void mbm_uartRxRoutine(UART_HandleTypeDef* uHandle)
  * @brief	ModBus MASTER strong override function.
  * 			Use it to turn on the received after succesfull request is sent.
  * 			Return if \ref uHandle does not match configured periph.
- * @param	uHandle: pointer to the uart modbus slave struct.
+ * @param	uHandle: pointer to the uart modbus master struct.
  */
 void mbm_uartTxRoutine(UART_HandleTypeDef* uHandle)
 {
@@ -550,17 +573,41 @@ void mbm_uartTxRoutine(UART_HandleTypeDef* uHandle)
 	mbmUart_t* mbm = mbm_GetModuleFromUart(uHandle);
 
 	if (mbm)
-	{
-		// check if request was not a broadcast
-		if (!mbm->sendFrame.addr)
-			return;
+		mbm_TxDoneRoutine(mbm);
+}
 
-		// reset modbus rx state
-		mbg_RxTimeout(&mbm->mbg);
+/*
+ * @brief	ModBus MASTER strong override function.
+ * 			Use it to turn on the received after succesfull request is sent.
+ * 			Return if \ref plcHandle does not match configured periph.
+ * @param	plcHandle: pointer to the plc modbus master struct.
+ */
+void mbm_plcTxRoutine(plcm_t* plcHandle)
+{
+	assert_param(plcHandle);
 
-		// start global timeout timer
-		mbm_RespTimeoutRestart(mbm);
-	}
+	mbmUart_t* mbm = mbm_GetModuleFromPlc(plcHandle);
+
+	if (mbm)
+		mbm_TxDoneRoutine(mbm);
+}
+
+HAL_StatusTypeDef mbm_TxDoneRoutine(mbmUart_t* mbmu)
+{
+	assert_param(mbmu);
+	HAL_StatusTypeDef retVal = HAL_OK;
+
+	// check if request was not a broadcast
+	if (!mbmu->sendFrame.addr)
+		return HAL_OK;
+
+	// reset modbus rx state
+	retVal += mbg_RxTimeout(&mbmu->mbg);
+
+	// start global timeout timer
+	retVal+= mbm_RespTimeoutRestart(mbmu);
+
+	return retVal;
 }
 
 /*

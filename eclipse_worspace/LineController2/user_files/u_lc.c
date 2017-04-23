@@ -92,25 +92,10 @@ void lc_pingTask(void const* argument)
 
 	// get the pointer
 	lc_t* l = (lc_t*)argument;
-	uint32_t i, addr, curPing = 0;
-
-	osDelay(1000);
+	uint32_t i, addr;
 
 	while (1)
 	{
-		osDelay(10);
-
-		/*if (curPing < LC_PINGS_TILL_PRESENT + 2)
-		{
-			curPing++;
-			log_PushLine(e_logLevel_Debug, "Ping %u/%u", curPing, LC_PINGS_TILL_PRESENT);
-		}
-		else
-		{
-			log_PushLine(e_logLevel_Debug, "Suspending ping thread");
-			osThreadSuspend(0); // no need to ping anymore
-		}
-
 		// ping loop
 		for (i = 0, addr = 1; i < LC_NO_OF_RCS; i++, addr++)
 		{
@@ -124,7 +109,7 @@ void lc_pingTask(void const* argument)
 
 			// maintain presence table for the master PC
 			lc_manageRcPresBits(l, i);
-		}*/
+		}
 	}
 }
 

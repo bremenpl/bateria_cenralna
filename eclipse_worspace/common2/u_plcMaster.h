@@ -62,6 +62,24 @@ typedef enum
 
 } plcSupplyType_t;
 
+typedef enum
+{
+	e_plcTransStatus_Idle			= 0,
+	e_plcTransStatus_Sending		= 1,
+	e_plcTransStatus_Receiving		= 2,
+} plcTransStatus_t;
+
+typedef struct
+{
+	uint8_t*			data;				/*!< pointer to the data array */
+	uint32_t			len;				/*!< data length */
+
+	uint32_t			bitIndex;			/*!< Current bit to send */
+	uint32_t			byteIndex;			/*!< Current byte to send */
+	plcTransStatus_t	status;				/*!< Current module status */
+
+} plcTransStruct_t;
+
 typedef struct
 {
 	// preset params
@@ -101,6 +119,7 @@ typedef struct
 	// operational variables
 	plcState_t			state;				/*!< Module machine state */
 	plcSupplyType_t		supply;				/*!< Ac voltage present */
+	plcTransStruct_t	trans;				/*!< Transmission struct 		*/
 
 } plcm_t;
 
@@ -121,9 +140,11 @@ uint32_t plcm_GetInState(const uint32_t id);
 uint32_t plcm_GetZcState(const uint32_t id);
 void plcm_timHandle(TIM_HandleTypeDef* timer);
 void plcm_extiHandle(uint16_t GPIO_Pin);
+void plcm_StartSendAtNextSync(plcm_t* p);
+HAL_StatusTypeDef plcm_GetIdFromPlc(plcm_t* p, uint32_t* id);
 
-
-
+// overrides
+void plcm_txRoutine(plcm_t* plcHandle);
 
 
 

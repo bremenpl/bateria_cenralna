@@ -287,13 +287,16 @@ HAL_StatusTypeDef mbg_SendData(mbgUart_t* uart)
 			return HAL_ERROR;
 		}
 
+		// set transmission parameters
+		uart->plcm.trans.data = uart->txbuf;
+		uart->plcm.trans.len = uart->len;
+		uart->plcm.trans.bitIndex = 0;
+		uart->plcm.trans.byteIndex = 0;
+
 		if (e_plcSupplyType_Ac == uart->plcm.supply)
 			uart->plcm.state = e_plcState_SendWaitForNextZc;
 		else
-		{
-			uart->plcm.state = e_plcState_SendWaitForNextSyncTimeout;
-			// dodac funkcje startujaca timer
-		}
+			plcm_StartSendAtNextSync(&uart->plcm);
 	}
 
 	return retVal;
@@ -456,6 +459,8 @@ int mbg_inHandlerMode()
 	HAL_FLASH_Lock();
 }*/
 
+// Strong overrides for uart and plc
+
 /*
  * @brief	Uart TX complete handle overwrite function for both master and slave modules.
  * 			Depending on which driver is used the proper function has to be
@@ -484,41 +489,62 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	mbm_uartRxRoutine(huart);
 }
 
+void plcm_txRoutine(plcm_t* plcHandle)
+{
+	mbm_plcTxRoutine(plcHandle);
+}
+
 /*
  * @brief	ModBus SLAVE weak override function. Do NOT override it in MASTER framework.
- * @param	uHandle: pointer to the uart modbus master struct.
+ * @param	uHandle: pointer to the uart modbus slave struct.
  */
 __attribute__((weak)) void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle) { }
 
 /*
  * @brief	ModBus MASTER weak override function. Do NOT override it in SLAVE framework.
- * @param	uHandle: pointer to the uart modbus slave struct.
+ * @param	uHandle: pointer to the uart modbus master struct.
  */
 __attribute__((weak)) void mbm_uartRxRoutine(UART_HandleTypeDef* uHandle) { }
 
 /*
  * @brief	ModBus SLAVE weak override function. Do NOT override it in MASTER framework.
- * @param	uHandle: pointer to the uart modbus master struct.
+ * @param	uHandle: pointer to the uart modbus slave struct.
  */
 __attribute__((weak)) void mbs_uartTxRoutine(UART_HandleTypeDef* uHandle) { }
 
 /*
  * @brief	ModBus MASTER weak override function. Do NOT override it in SLAVE framework.
- * @param	uHandle: pointer to the uart modbus slave struct.
+ * @param	uHandle: pointer to the uart modbus master struct.
  */
 __attribute__((weak)) void mbm_uartTxRoutine(UART_HandleTypeDef* uHandle) { }
 
 /*
  * @brief	ModBus SLAVE weak override function. Do NOT override it in SLAVE framework.
- * @param	uHandle: pointer to the uart modbus master struct.
+ * @param	uHandle: pointer to the uart modbus slave struct.
  */
 __attribute__((weak)) void mbs_uartRxTimeoutRoutine(TIM_HandleTypeDef* tim) { }
 
 /*
  * @brief	ModBus SLAVE weak override function. Do NOT override it in MASTER framework.
- * @param	uHandle: pointer to the uart modbus slave struct.
+ * @param	uHandle: pointer to the uart modbus master struct.
  */
 __attribute__((weak)) void mbm_uartRxTimeoutRoutine(TIM_HandleTypeDef* tim) { }
+
+
+
+// PLC OVERRIDES
+
+/*
+ * @brief	ModBus MASTER weak override function. Do NOT override it in SLAVE framework.
+ * @param	plcHandle: pointer to the plc modbus master struct.
+ */
+__attribute__((weak)) void mbm_plcTxRoutine(plcm_t* plcHandle) { }
+
+
+
+
+
+// GENERIC OVERRIDES
 
 /*
  * @brief	ModBus GENERIC weak override function. It can be overriden in any module
@@ -527,6 +553,12 @@ __attribute__((weak)) void mbm_uartRxTimeoutRoutine(TIM_HandleTypeDef* tim) { }
  * @param	mf: pointer to the received/ sent struct.
  */
 __attribute__((weak)) void mbg_uartPrintFrame(const mbgFrame_t* const mf)  { }
+
+
+
+
+
+
 
 
 

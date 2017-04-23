@@ -158,7 +158,7 @@ HAL_StatusTypeDef mbg_RxTimeout(mbgUart_t* uart);
 int mbg_inHandlerMode();
 HAL_StatusTypeDef mbg_DisableReceiver(mbgUart_t* uart);
 
-// overrides
+// overrides for uart
 void mbs_uartRxRoutine(UART_HandleTypeDef* uHandle);
 void mbm_uartRxRoutine(UART_HandleTypeDef* uHandle);
 void mbs_uartTxRoutine(UART_HandleTypeDef* uHandle);
@@ -167,6 +167,10 @@ void mbm_uartTxRoutine(UART_HandleTypeDef* uHandle);
 void mbs_uartRxTimeoutRoutine(TIM_HandleTypeDef* tim);
 void mbm_uartRxTimeoutRoutine(TIM_HandleTypeDef* tim);
 
+// overrides for plc
+void mbm_plcTxRoutine(plcm_t* plcHandle);
+
+// overrides for generic purpose
 void mbg_uartPrintFrame(const mbgFrame_t* const mf);
 
 /* Function declarations -----------------------------------------------------*/
