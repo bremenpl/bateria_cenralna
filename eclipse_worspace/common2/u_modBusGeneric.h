@@ -21,7 +21,7 @@
 
 #include "cmsis_os.h"
 #include "stdbool.h"
-#include "u_plcMaster.h"
+#include "u_plc.h"
 
 /* Defines and macros --------------------------------------------------------*/
 #define MBG_MAX_DATA_LEN				252
@@ -164,11 +164,15 @@ void mbm_uartRxRoutine(UART_HandleTypeDef* uHandle);
 void mbs_uartTxRoutine(UART_HandleTypeDef* uHandle);
 void mbm_uartTxRoutine(UART_HandleTypeDef* uHandle);
 
+// overrides for plc
+void mbs_plcRxRoutine(plcm_t* plcHandle);
+void mbm_plcRxRoutine(plcm_t* plcHandle);
+void mbs_plcTxRoutine(plcm_t* plcHandle);
+void mbm_plcTxRoutine(plcm_t* plcHandle);
+
+// generic
 void mbs_uartRxTimeoutRoutine(TIM_HandleTypeDef* tim);
 void mbm_uartRxTimeoutRoutine(TIM_HandleTypeDef* tim);
-
-// overrides for plc
-void mbm_plcTxRoutine(plcm_t* plcHandle);
 
 // overrides for generic purpose
 void mbg_uartPrintFrame(const mbgFrame_t* const mf);

@@ -5,8 +5,8 @@
  *      Author: Lukasz
  */
 
-#ifndef U_PLCMASTER_H_
-#define U_PLCMASTER_H_
+#ifndef U_PLC_H_
+#define U_PLC_H_
 
 /* Includes ------------------------------------------------------------------*/
 
@@ -49,6 +49,7 @@ typedef enum
 	e_plcState_SendWaitForDataBitDone,
 	e_plcState_SendWaitForNextSyncTimeout,
 
+	e_plcState_RecvWaitForSyncBit1st,
 	e_plcState_RecvWaitForSyncBit,
 	e_plcState_RecvWaitForSyncBitTimeout,
 
@@ -117,9 +118,10 @@ typedef struct
 	timParams_t			timParamsSyncRecv;	/*!< Receive bits timer settings */
 
 	// operational variables
-	plcState_t			state;				/*!< Module machine state */
-	plcSupplyType_t		supply;				/*!< Ac voltage present */
+	plcState_t			state;				/*!< Module machine state 		*/
+	plcSupplyType_t		supply;				/*!< Ac voltage present 		*/
 	plcTransStruct_t	trans;				/*!< Transmission struct 		*/
+	uint8_t				recvByte;			/*!< Received bytes pre buffer 	*/
 
 } plcm_t;
 
@@ -143,10 +145,19 @@ void plcm_extiHandle(uint16_t GPIO_Pin);
 void plcm_StartSendAtNextSync(plcm_t* p);
 HAL_StatusTypeDef plcm_GetIdFromPlc(plcm_t* p, uint32_t* id);
 
+void plcm_BitsTimerHandleSlave(const uint32_t id);
+void plcm_BitsTimerHandleMaster(const uint32_t id);
+void plcm_SyncTimerHandleSlave(const uint32_t id);
+void plcm_SyncTimerHandleMaster(const uint32_t id);
+void plcm_InPinHandleSlave(const uint32_t id);
+void plcm_InPinHandleMaster(const uint32_t id);
+void plcm_resetTransData(plcm_t* plc);
+
 // overrides
 void plcm_txRoutine(plcm_t* plcHandle);
+void plcm_rxRoutine(plcm_t* plcHandle);
 
 
 
 
-#endif /* U_PLCMASTER_H_ */
+#endif /* U_PLC_H_ */

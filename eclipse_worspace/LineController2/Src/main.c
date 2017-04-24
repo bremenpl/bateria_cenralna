@@ -127,7 +127,7 @@ int main(void)
     lc[0].mbm.mbg.plcm.timHandleSync = &htim6;
     lc[0].mbm.mbg.plcm.timHandleBits = &htim7;
 
-    lc[0].mbm.mbg.plcm.strobe = 1;
+    lc[0].mbm.mbg.plcm.strobe = 0;
     lc[0].mbm.mbg.plcm.zCgpio = LC_NACFAIL_GPIO;
     lc[0].mbm.mbg.plcm.zCpin = LC_NACFAIL_PIN;
 

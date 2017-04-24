@@ -6,7 +6,7 @@
  */
 
 /* Includes ------------------------------------------------------------------*/
-#include "u_plcMaster.h"
+#include "u_plc.h"
 
 /* Defines and macros --------------------------------------------------------*/
 
@@ -27,12 +27,15 @@ HAL_StatusTypeDef plcm_BitsTimerRestart(const uint32_t id);
 HAL_StatusTypeDef plcm_BitsTimerStop(const uint32_t id);
 
 HAL_StatusTypeDef plcm_GetIdFromZcPin(uint16_t GPIO_Pin, uint32_t* id);
+HAL_StatusTypeDef plcm_GetIdFromInPin(uint16_t GPIO_Pin, uint32_t* id);
 HAL_StatusTypeDef plcm_GetIdFromSyncTim(TIM_HandleTypeDef* timer, uint32_t* id);
 HAL_StatusTypeDef plcm_GetIdFromBitsTim(TIM_HandleTypeDef* timer, uint32_t* id);
 HAL_StatusTypeDef plcm_SendSyncBit(const uint32_t id);
-HAL_StatusTypeDef plcm_SendDataBit(const uint32_t id);
+void plcm_SendDataBit(const uint32_t id);
 HAL_StatusTypeDef plcm_SetIdleState(const uint32_t id);
 HAL_StatusTypeDef plcm_FinishSendChunk(const uint32_t id);
+void plcm_ReadDataBit(const uint32_t id);
+
 
 /* Function declarations -----------------------------------------------------*/
 
@@ -371,6 +374,25 @@ HAL_StatusTypeDef plcm_GetIdFromZcPin(uint16_t GPIO_Pin, uint32_t* id)
 }
 
 /*
+ * @brief	Checks either provided In pin matches any In pin in the modules table
+ */
+HAL_StatusTypeDef plcm_GetIdFromInPin(uint16_t GPIO_Pin, uint32_t* id)
+{
+	assert_param(id);
+
+	for (uint32_t i = 0; i < plcIndex; i++)
+	{
+		if (GPIO_Pin == plcm[i]->plcInpin)
+		{
+			*id = i;
+			return HAL_OK;
+		}
+	}
+
+	return HAL_ERROR;
+}
+
+/*
  * @brief	Checks Sync timer match
  */
 HAL_StatusTypeDef plcm_GetIdFromSyncTim(TIM_HandleTypeDef* timer, uint32_t* id)
@@ -454,64 +476,100 @@ void plcm_timHandle(TIM_HandleTypeDef* timer)
 
 	if (!plcm_GetIdFromBitsTim(timer, &id)) // BITS
 	{
-		switch (plcm[id]->state)
-		{
-			case e_plcState_SendWaitForSyncBitDone:
-			{
-				// now set data bit
-				plcm_SendDataBit(id);
-				break;
-			}
-
-			case e_plcState_SendWaitForDataBitDone:
-			{
-				plcm_FinishSendChunk(id);
-
-				// set low state on tx line, wait for next sync if still sending
-				switch (plcm[id]->trans.status)
-				{
-					case e_plcTransStatus_Sending:
-					{
-						plcm[id]->state = e_plcState_SendWaitForNextSyncTimeout;
-						break;
-					}
-
-					case e_plcTransStatus_Idle:
-					default:
-					{
-						// transmission finished
-						plcm[id]->state = e_plcState_Idle;
-						plcm_SyncTimerStop(id);
-
-						// call tx routine
-						plcm_txRoutine(plcm[id]);
-					}
-				}
-				break;
-			}
-
-			default: // unknown state, set default one
-			{
-				plcm_SetIdleState(id);
-			}
-		}
+		if (e_plcDevType_Slave == plcm[id]->devType)
+			plcm_BitsTimerHandleSlave(id);
+		else
+			plcm_BitsTimerHandleMaster(id);
 	}
 	else if (!plcm_GetIdFromSyncTim(timer, &id)) // SYNC
 	{
-		switch (plcm[id]->state)
-		{
-			case e_plcState_SendWaitForNextSyncTimeout:
-			{
-				plcm_SendSyncBit(id); // send sync
-				break;
-			}
+		if (e_plcDevType_Slave == plcm[id]->devType)
+			plcm_SyncTimerHandleSlave(id);
+		else
+			plcm_SyncTimerHandleMaster(id);
+	}
+}
 
-			case e_plcState_Idle:
-			default:
+void plcm_BitsTimerHandleMaster(const uint32_t id)
+{
+	switch (plcm[id]->state)
+	{
+		case e_plcState_SendWaitForSyncBitDone:
+		{
+			// now set data bit
+			plcm_SendDataBit(id);
+			break;
+		}
+
+		case e_plcState_SendWaitForDataBitDone:
+		{
+			plcm_FinishSendChunk(id);
+
+			// set low state on tx line, wait for next sync if still sending
+			switch (plcm[id]->trans.status)
 			{
-				// expiration in idle state can only mean no AC
-				plcm[id]->supply = e_plcSupplyType_Dc;
+				case e_plcTransStatus_Sending:
+				{
+					plcm[id]->state = e_plcState_SendWaitForNextSyncTimeout;
+					break;
+				}
+
+				case e_plcTransStatus_Idle:
+				default:
+				{
+					// transmission finished
+					plcm_SyncTimerStop(id);
+
+					// call tx routine
+					plcm_txRoutine(plcm[id]);
+
+					// no mater if master or slave, after sending is receiving
+					plcm[id]->trans.status = e_plcTransStatus_Receiving;
+					plcm[id]->state = e_plcState_RecvWaitForSyncBit;
+				}
 			}
+			break;
+		}
+
+		default: // unknown state, set default one
+		{
+			plcm_SetIdleState(id);
+		}
+	}
+}
+
+void plcm_SyncTimerHandleMaster(const uint32_t id)
+{
+	switch (plcm[id]->state)
+	{
+		case e_plcState_SendWaitForNextSyncTimeout:
+		{
+			plcm_SendSyncBit(id); // send sync
+			break;
+		}
+
+		case e_plcState_Idle:
+		default:
+		{
+			// expiration in idle state can only mean no AC
+			plcm[id]->supply = e_plcSupplyType_Dc;
+		}
+	}
+}
+
+void plcm_SyncTimerHandleSlave(const uint32_t id)
+{
+
+}
+
+void plcm_BitsTimerHandleSlave(const uint32_t id)
+{
+	switch (plcm[id]->state)
+	{
+		case e_plcState_RecvWaitForSyncBitTimeout:
+		{
+			// Now in the middle of data bit, read it
+			break;
 		}
 	}
 }
@@ -524,38 +582,87 @@ void plcm_extiHandle(uint16_t GPIO_Pin)
 	assert_param(GPIO_Pin);
 	uint32_t id;
 
-	if (plcm_GetIdFromZcPin(GPIO_Pin, &id))
-		return; // module not found
+	if (HAL_OK == plcm_GetIdFromZcPin(GPIO_Pin, &id)) // ZC interrupt, only for master
+	{
+		if (plcm[id]->strobe != plcm_GetZcState(id)) // react only on low strobe
+			return;
 
-	if (plcm_GetZcState(id))
-		return;
+		// at this point ZC pin is identified and edge is falling
+		switch (plcm[id]->state)
+		{
+			case e_plcState_SendWaitForNextZc:
+			{
+				// set bit timer to sending (1 ms)
+				plcm_SetTimerParams(&plcm[id]->timParamsBitsSend, plcm[id]->timHandleBits);
 
-	// at this point ZC pin is identified and edge is falling
+				// start the transmission timer
+				plcm_StartSendAtNextSync(plcm[id]);
+				break;
+			}
+
+			case e_plcState_Idle:
+			{
+				// expiration in idle state can only mean AC is on
+				plcm_SyncTimerRestart(id);
+				plcm[id]->supply = e_plcSupplyType_Ac;
+				break;
+			}
+
+			default:
+			{
+				// add logging leds
+			}
+		}
+	}
+
+	else if (HAL_OK == plcm_GetIdFromInPin(GPIO_Pin, &id))
+	{
+		// at this point IN pin rising edge is identified, check if in reception mode
+		if (e_plcTransStatus_Receiving != plcm[id]->trans.status)
+			return;
+
+		if (e_plcDevType_Slave == plcm[id]->devType)
+			plcm_InPinHandleSlave(id);
+		else
+			plcm_InPinHandleMaster(id);
+	}
+}
+
+void plcm_InPinHandleSlave(const uint32_t id)
+{
 	switch (plcm[id]->state)
 	{
-		case e_plcState_SendWaitForNextZc:
+		case e_plcState_RecvWaitForSyncBit1st:
 		{
-			// set bit timer to sending (1 ms)
-			plcm_SetTimerParams(&plcm[id]->timParamsBitsSend, plcm[id]->timHandleBits);
+			// this is 1st sync bit. Master doesnt care, slave starts sync timer
+			plcm_SyncTimerRestart(id);
 
-			// start the transmission timer
-			plcm_StartSendAtNextSync(plcm[id]);
+			// set bit timer to recv timing and start it
+			plcm_SetTimerParams(&plcm[id]->timParamsBitsRecv, plcm[id]->timHandleBits);
+			plcm_BitsTimerRestart(id);
+
+			// update state
+			plcm[id]->state = e_plcState_RecvWaitForSyncBitTimeout;
 			break;
 		}
 
-		case e_plcState_Idle:
+		case e_plcState_RecvWaitForSyncBit:
 		{
-			// expiration in idle state can only mean AC is on
-			plcm_SyncTimerRestart(id);
-			plcm[id]->supply = e_plcSupplyType_Ac;
+			// same as 1st, but sync timer is already set and started
+			plcm_BitsTimerRestart(id);
+			plcm[id]->state = e_plcState_RecvWaitForSyncBitTimeout;
 			break;
 		}
 
 		default:
 		{
-			// do nothing
+			// add logging leds
 		}
 	}
+}
+
+void plcm_InPinHandleMaster(const uint32_t id)
+{
 
 }
 
@@ -581,9 +688,8 @@ HAL_StatusTypeDef plcm_SendSyncBit(const uint32_t id)
  * @brief	Sets the out state to the value corresponding to the current data bit.
  * 			After setting the last bit, changes state to recv/ idle.
  * @param	id: plc module identifier
- * @return	HAL_OK if timer restarted succesfully.
  */
-HAL_StatusTypeDef plcm_SendDataBit(const uint32_t id)
+void plcm_SendDataBit(const uint32_t id)
 {
 	// get the bit state
 	uint32_t bit = plcm[id]->trans.data[plcm[id]->trans.byteIndex] &
@@ -600,10 +706,7 @@ HAL_StatusTypeDef plcm_SendDataBit(const uint32_t id)
 
 		// byte
 		if (plcm[id]->trans.byteIndex >= (plcm[id]->trans.len - 1)) // end transmission
-		{
-			plcm[id]->trans.byteIndex = 0;
-			plcm[id]->trans.status = e_plcTransStatus_Idle;
-		}
+			plcm_resetTransData(plcm[id]);
 		else
 			plcm[id]->trans.byteIndex++;
 	}
@@ -611,7 +714,36 @@ HAL_StatusTypeDef plcm_SendDataBit(const uint32_t id)
 		plcm[id]->trans.bitIndex++;
 
 	plcm[id]->state = e_plcState_SendWaitForDataBitDone;
-	return HAL_OK; //plcm_BitsTimerRestart(id); // no need to restart timer, its running
+}
+
+/*
+ * @brief	Reads the In state bit.
+ * 			After setting the last bit, changes state to recv/ idle.
+ * @param	id: plc module identifier
+ */
+void plcm_ReadDataBit(const uint32_t id)
+{
+	// save bit value
+	uint32_t bit = plcm_GetInState(id) ? 1 : 0;
+
+	// clear whole byte at first bit
+	if (!plcm[id]->trans.bitIndex)
+		*plcm[id]->trans.data = 0;
+
+	// append bit
+	*plcm[id]->trans.data |= bit << plcm[id]->trans.bitIndex;
+
+	if (plcm[id]->trans.bitIndex >= 7)
+	{
+		plcm[id]->trans.bitIndex = 0;
+
+		// inform that byte is obtained
+		plcm_rxRoutine(plcm[id]);
+	}
+	else
+		plcm[id]->trans.bitIndex++;
+
+	plcm[id]->state = e_plcState_RecvWaitForSyncBit;
 }
 
 /*
@@ -638,7 +770,25 @@ HAL_StatusTypeDef plcm_SetIdleState(const uint32_t id)
 
 	// update state
 	plcm[id]->state = e_plcState_Idle;
+
+	// reset transmission data
+	plcm_resetTransData(plcm[id]);
+
 	return retVal;
+}
+
+/*
+ * @brief	Restarts all transfer/ receive parameters
+ */
+void plcm_resetTransData(plcm_t* plc)
+{
+	assert_param(plc);
+
+	plc->trans.status = e_plcTransStatus_Idle;
+	plc->trans.data = &plc->recvByte;
+	plc->trans.byteIndex = 0;
+	plc->trans.bitIndex = 0;
+	plc->trans.len = 0;
 }
 
 /*
@@ -659,6 +809,12 @@ HAL_StatusTypeDef plcm_FinishSendChunk(const uint32_t id)
  * @param	plcHandle: plc module that just completed transmission
  */
 __attribute__((weak)) void plcm_txRoutine(plcm_t* plcHandle) { }
+
+/*
+ * @brief	Weak override for plc receive complete
+ * @param	plcHandle: plc module that just completed reception
+ */
+__attribute__((weak)) void plcm_rxRoutine(plcm_t* plcHandle) { }
 
 
 

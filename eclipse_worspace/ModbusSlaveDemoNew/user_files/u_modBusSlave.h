@@ -10,6 +10,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "u_modBusGeneric.h"
+#include "u_plc.h"
 
 /* Defines and macros --------------------------------------------------------*/
 #define MBS_MAX_NO_OF_SLAVES	4

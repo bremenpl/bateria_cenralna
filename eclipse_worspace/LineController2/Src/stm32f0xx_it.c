@@ -124,6 +124,20 @@ void EXTI0_1_IRQHandler(void)
 }
 
 /**
+* @brief This function handles EXTI line 2 and 3 interrupts.
+*/
+void EXTI2_3_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI2_3_IRQn 0 */
+
+  /* USER CODE END EXTI2_3_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_3);
+  /* USER CODE BEGIN EXTI2_3_IRQn 1 */
+
+  /* USER CODE END EXTI2_3_IRQn 1 */
+}
+
+/**
 * @brief This function handles DMA1 channel 4 to 7 and DMA2 channel 3 to 5 interrupts.
 */
 void DMA1_Ch4_7_DMA2_Ch3_5_IRQHandler(void)

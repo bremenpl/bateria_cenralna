@@ -9,7 +9,6 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "u_modBusGeneric.h"
-#include "u_logger.h"
 #include <stdlib.h>
 
 /* Defines and macros --------------------------------------------------------*/
@@ -166,9 +165,12 @@ HAL_StatusTypeDef mbg_ByteReceived(mbgUart_t* uart)
 	if (osOK != osMessagePut(uart->rxQ.msgQId, (uint32_t)uart->rxQ.rxByte, osWaitForever))
 		return HAL_OK;
 
-	// turn on the rx interrupts again, reset the timer
+	// reset the timer
 	retVal += mbg_ResetRxTimer(uart);
-	retVal += mbg_EnableReceiver(uart);
+
+	// turn on the rx interrupts again if in uart mode
+	if (e_mbgModuleType_Uart == uart->modType)
+		retVal += mbg_EnableReceiver(uart);
 
 	return retVal;
 }
@@ -191,6 +193,8 @@ HAL_StatusTypeDef mbg_RxTimeout(mbgUart_t* uart)
 
 	// reset state
 	uart->rxState = e_mbgRxState_addr;
+	uart->plcm.state = e_plcState_Idle;
+	plcm_resetTransData(&uart->plcm);
 	return HAL_OK;
 }
 
@@ -281,11 +285,7 @@ HAL_StatusTypeDef mbg_SendData(mbgUart_t* uart)
 	{
 		// can initialize transmission only in idle state
 		if (e_plcState_Idle != uart->plcm.state)
-		{
-			log_PushLine(e_logLevel_Critical,
-					"Cannot transmit in PLC mode when state is %u", uart->plcm.state);
 			return HAL_ERROR;
-		}
 
 		// set transmission parameters
 		uart->plcm.trans.data = uart->txbuf;
@@ -491,8 +491,17 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 void plcm_txRoutine(plcm_t* plcHandle)
 {
+	mbs_plcTxRoutine(plcHandle);
 	mbm_plcTxRoutine(plcHandle);
 }
+
+void plcm_rxRoutine(plcm_t* plcHandle)
+{
+	mbs_plcRxRoutine(plcHandle);
+	mbm_plcRxRoutine(plcHandle);
+}
+
+// UART OVERRIDES
 
 /*
  * @brief	ModBus SLAVE weak override function. Do NOT override it in MASTER framework.
@@ -518,6 +527,21 @@ __attribute__((weak)) void mbs_uartTxRoutine(UART_HandleTypeDef* uHandle) { }
  */
 __attribute__((weak)) void mbm_uartTxRoutine(UART_HandleTypeDef* uHandle) { }
 
+
+// PLC OVERRIDES
+
+/*
+ * @brief	ModBus MASTER weak override function. Do NOT override it in SLAVE framework.
+ * @param	plcHandle: pointer to the plc modbus master struct.
+ */
+__attribute__((weak)) void mbs_plcRxRoutine(plcm_t* plcHandle) { }
+__attribute__((weak)) void mbm_plcRxRoutine(plcm_t* plcHandle) { }
+__attribute__((weak)) void mbs_plcTxRoutine(plcm_t* plcHandle) { }
+__attribute__((weak)) void mbm_plcTxRoutine(plcm_t* plcHandle) { }
+
+
+// GENERIC OVERRIDES
+
 /*
  * @brief	ModBus SLAVE weak override function. Do NOT override it in SLAVE framework.
  * @param	uHandle: pointer to the uart modbus slave struct.
@@ -529,17 +553,6 @@ __attribute__((weak)) void mbs_uartRxTimeoutRoutine(TIM_HandleTypeDef* tim) { }
  * @param	uHandle: pointer to the uart modbus master struct.
  */
 __attribute__((weak)) void mbm_uartRxTimeoutRoutine(TIM_HandleTypeDef* tim) { }
-
-
-
-// PLC OVERRIDES
-
-/*
- * @brief	ModBus MASTER weak override function. Do NOT override it in SLAVE framework.
- * @param	plcHandle: pointer to the plc modbus master struct.
- */
-__attribute__((weak)) void mbm_plcTxRoutine(plcm_t* plcHandle) { }
-
 
 
 

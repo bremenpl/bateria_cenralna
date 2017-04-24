@@ -12,7 +12,7 @@
 #include "cmsis_os.h"
 
 #include "u_modBusGeneric.h"
-#include "u_plcMaster.h"
+#include "u_plc.h"
 
 /* Defines and macros --------------------------------------------------------*/
 

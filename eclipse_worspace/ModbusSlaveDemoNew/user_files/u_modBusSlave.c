@@ -27,6 +27,8 @@ HAL_StatusTypeDef mbs_SendErrorResponse(mbgUart_t* uart, mbgFrame_t* mf, mbgExCo
 mbsUart_t* mbs_GetModuleFromUart(UART_HandleTypeDef* uart);
 mbsUart_t* mbs_GetModuleFromTimer(TIM_HandleTypeDef* timer);
 mbsUart_t* mbs_GetModuleFromMbg(mbgUart_t* mbg);
+mbsUart_t* mbs_GetModuleFromPlc(plcm_t* plc);
+
 void mbs_digForFrames(mbsUart_t* m, const uint8_t byte);
 void mbs_rxFrameHandle(mbsUart_t* const mbsu);
 void mbs_taskRxDequeue(void const* argument);
@@ -146,6 +148,25 @@ mbsUart_t* mbs_GetModuleFromMbg(mbgUart_t* mbg)
 	for (size_t i = 0; i < mbs_slavesNr; i++)
 	{
 		if (mbg == &mbs_u[i]->mbg)
+			return mbs_u[i];
+	}
+
+	return 0;
+}
+
+/*
+ * @brief	If \ref plc is found in one of the slave structs, the slave struct
+ * 			in which it was found is returned. Otherwise zero is returned.
+ * @param	plc: handle
+ * @return	modbus master plc module pointer or zero.
+ */
+mbsUart_t* mbs_GetModuleFromPlc(plcm_t* plc)
+{
+	assert_param(plc);
+
+	for (size_t i = 0; i < mbs_slavesNr; i++)
+	{
+		if (plc == &mbs_u[i]->mbg.plcm)
 			return mbs_u[i];
 	}
 
@@ -397,6 +418,21 @@ void mbs_uartTxRoutine(UART_HandleTypeDef* uHandle)
 
 	if (mbs)
 		mbg_RxTimeout(&mbs->mbg);
+}
+
+void mbs_plcRxRoutine(plcm_t* plcHandle)
+{
+	assert_param(plcHandle);
+
+	// check if handle is known
+	mbsUart_t* mbs = mbs_GetModuleFromPlc(plcHandle);
+
+	if (mbs)
+	{
+		// move data from plc layer to mbg layer
+		mbs->mbg.rxQ.rxByte = *mbs->mbg.plcm.trans.data;
+		mbg_ByteReceived(&mbs->mbg);
+	}
 }
 
 // overrides

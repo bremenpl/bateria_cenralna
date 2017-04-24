@@ -78,7 +78,7 @@ HAL_StatusTypeDef mbm_Init(mbmUart_t* mbmu, size_t noOfModules)
 		retVal += mbg_UartInit(&m->mbg);
 
 		// reinitialize master timeout
-		m->toutQ.timeout_ms = m->mbg.mbTimeout_ms * 5;
+		m->toutQ.timeout_ms = m->mbg.mbTimeout_ms;
 
 		// create slave responses reception queue.
 		msgDef_temp.item_sz = sizeof(uint32_t);
