@@ -57,6 +57,8 @@
 /* USER CODE END Includes */
 
 extern TIM_HandleTypeDef htim6;
+extern TIM_HandleTypeDef htim16;
+extern TIM_HandleTypeDef htim17;
 
 /* USER CODE BEGIN Private defines */
 
@@ -65,6 +67,8 @@ extern TIM_HandleTypeDef htim6;
 extern void Error_Handler(void);
 
 void MX_TIM6_Init(void);
+void MX_TIM16_Init(void);
+void MX_TIM17_Init(void);
 
 /* USER CODE BEGIN Prototypes */
 

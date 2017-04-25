@@ -56,6 +56,7 @@ void TIM6_DAC_IRQHandler(void);
 void TIM7_IRQHandler(void);
 void TIM14_IRQHandler(void);
 void TIM16_IRQHandler(void);
+void TIM17_IRQHandler(void);
 void I2C1_IRQHandler(void);
 void USART1_IRQHandler(void);
 void USART3_8_IRQHandler(void);

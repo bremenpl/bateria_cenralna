@@ -59,6 +59,10 @@
 #define CurrentDetected_GPIO_Port GPIOA
 #define McuLampEnable_Pin GPIO_PIN_4
 #define McuLampEnable_GPIO_Port GPIOA
+#define PLC_OUT_Pin GPIO_PIN_9
+#define PLC_OUT_GPIO_Port GPIOA
+#define PLC_IN_Pin GPIO_PIN_10
+#define PLC_IN_GPIO_Port GPIOA
 #define ENCB3_Pin GPIO_PIN_11
 #define ENCB3_GPIO_Port GPIOA
 #define ENCB1_Pin GPIO_PIN_12

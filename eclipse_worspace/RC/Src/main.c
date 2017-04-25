@@ -44,10 +44,8 @@
 #include "main.h"
 #include "stm32f0xx_hal.h"
 #include "cmsis_os.h"
-#include "dma.h"
 #include "i2c.h"
 #include "tim.h"
-#include "usart.h"
 #include "gpio.h"
 
 /* USER CODE BEGIN Includes */
@@ -95,10 +93,10 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
   MX_I2C1_Init();
-  MX_USART1_UART_Init();
   MX_TIM6_Init();
+  MX_TIM16_Init();
+  MX_TIM17_Init();
 
   /* USER CODE BEGIN 2 */
 
@@ -113,7 +111,7 @@ int main(void)
 	sa.enca[2].gpio = GPIOA;
 	sa.enca[2].nr = GPIO_PIN_15;
 	sa.enca[3].gpio = GPIOB;
-	sa.enca[4].nr = GPIO_PIN_4;
+	sa.enca[3].nr = GPIO_PIN_4;
 
 	// ENCB
 	sa.encb[0].gpio = GPIOA;
@@ -123,20 +121,27 @@ int main(void)
 	sa.encb[2].gpio = GPIOA;
 	sa.encb[2].nr = GPIO_PIN_11;
 	sa.encb[3].gpio = GPIOF;
-	sa.encb[4].nr = GPIO_PIN_6;
+	sa.encb[3].nr = GPIO_PIN_6;
 
   // set slave address
 	if (address_Init(&mbsu.slaveAddr, &sa, 10))
 		while(1); // bad address
 
-	// set uart handle
-	mbsu.mbg.handle = &huart1;
-
-	// timeout timer
+	// timeout
 	mbsu.mbg.rxQ.toutTim = &htim6;
-
-	// timeout time
 	mbsu.mbg.rxQ.T35 = 3.5f;
+
+	mbsu.mbg.modType = e_mbgModuleType_Plc;
+	mbsu.mbg.plcm.timHandleSync = &htim16;
+	mbsu.mbg.plcm.timHandleBits = &htim17;
+
+	mbsu.mbg.plcm.plcIngpio = PLC_IN_GPIO;
+	mbsu.mbg.plcm.plcInpin = PLC_IN_PIN;
+
+	mbsu.mbg.plcm.plcOutgpio = PLC_OUT_GPIO;
+	mbsu.mbg.plcm.plcOutpin = PLC_OUT_PIN;
+
+	mbsu.mbg.plcm.devType = e_plcDevType_Slave;
 
 	mbs_Init(&mbsu, 1);
 	mbsHandler_Init();
@@ -200,8 +205,7 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1|RCC_PERIPHCLK_I2C1;
-  PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK1;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_I2C1;
   PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_SYSCLK;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {

@@ -31,6 +31,13 @@
 #define MBG_MAX_FRAME_LEN				(1 + 1 + MBG_MAX_DATA_LEN + 2)
 #define MBG_MAX_QTY_OF_REGS				((MBG_MAX_DATA_LEN / 2) - 1)
 
+#ifndef HAL_UART_MODULE_ENABLED
+	#define HAL_UART_STATE_READY 0
+	#define HAL_UART_STATE_BUSY_RX 0
+	typedef uint32_t UART_HandleTypeDef;
+	typedef uint32_t HAL_UART_StateTypeDef;
+#endif
+
 /* Enums and structs ---------------------------------------------------------*/
 
 /*

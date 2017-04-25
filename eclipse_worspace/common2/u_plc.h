@@ -15,6 +15,7 @@
 
 /* Defines and macros --------------------------------------------------------*/
 #define PLC_MAX_MODULES			4
+#define	PLC_EXP_TIL_DC			6
 
 /* Enums and structs ---------------------------------------------------------*/
 
@@ -96,6 +97,7 @@ typedef struct
 
 	TIM_HandleTypeDef*	timHandleSync;		/*!< Used for ZC sync 			*/
 	TIM_HandleTypeDef*	timHandleBits;		/*!< Used for bit timing 		*/
+	TIM_HandleTypeDef*	timHandleZc;				/*!< Used for checking AC/DC	*/
 
 	plcDevType_t		devType;			/*!< Slave or Master 			*/
 	plcMasBeh_t			devBeh;				/*!< Behavior on AC and DC		*/
@@ -122,6 +124,7 @@ typedef struct
 	plcSupplyType_t		supply;				/*!< Ac voltage present 		*/
 	plcTransStruct_t	trans;				/*!< Transmission struct 		*/
 	uint8_t				recvByte;			/*!< Received bytes pre buffer 	*/
+	uint32_t			noZcCounter;		/*!< incremented in ZC timer	*/
 
 } plcm_t;
 
@@ -149,6 +152,7 @@ void plcm_BitsTimerHandleSlave(const uint32_t id);
 void plcm_BitsTimerHandleMaster(const uint32_t id);
 void plcm_SyncTimerHandleSlave(const uint32_t id);
 void plcm_SyncTimerHandleMaster(const uint32_t id);
+void plcm_ZcTimerHandleMaster(const uint32_t id);
 void plcm_InPinHandleSlave(const uint32_t id);
 void plcm_InPinHandleMaster(const uint32_t id);
 void plcm_resetTransData(plcm_t* plc);

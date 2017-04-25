@@ -109,6 +109,7 @@ int main(void)
   MX_TIM7_Init();
   MX_TIM14_Init();
   MX_TIM16_Init();
+  MX_TIM17_Init();
 
   /* USER CODE BEGIN 2 */
 
@@ -126,6 +127,7 @@ int main(void)
     lc[0].mbm.mbg.modType = e_mbgModuleType_Plc;
     lc[0].mbm.mbg.plcm.timHandleSync = &htim6;
     lc[0].mbm.mbg.plcm.timHandleBits = &htim7;
+    lc[0].mbm.mbg.plcm.timHandleZc = &htim17;
 
     lc[0].mbm.mbg.plcm.strobe = 0;
     lc[0].mbm.mbg.plcm.zCgpio = LC_NACFAIL_GPIO;
@@ -157,7 +159,7 @@ int main(void)
 	sa.enca[2].gpio = GPIOB;
 	sa.enca[2].nr = GPIO_PIN_8;
 	sa.enca[3].gpio = GPIOB;
-	sa.enca[4].nr = GPIO_PIN_5;
+	sa.enca[3].nr = GPIO_PIN_5;
 
 	// ENCB
 	sa.encb[0].gpio = GPIOA;
@@ -167,7 +169,7 @@ int main(void)
 	sa.encb[2].gpio = GPIOB;
 	sa.encb[2].nr = GPIO_PIN_3;
 	sa.encb[3].gpio = GPIOB;
-	sa.encb[4].nr = GPIO_PIN_14;
+	sa.encb[3].nr = GPIO_PIN_14;
 
 	// set slave address
 	if (address_Init(&lc[0].mbs.slaveAddr, &sa, 10))

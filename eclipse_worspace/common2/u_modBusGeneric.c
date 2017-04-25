@@ -205,9 +205,11 @@ HAL_StatusTypeDef mbg_RxTimeout(mbgUart_t* uart)
  */
 HAL_StatusTypeDef mbg_CheckSendStatus(UART_HandleTypeDef* uHandle)
 {
+#ifdef HAL_UART_MODULE_ENABLED
 	HAL_UART_StateTypeDef state = HAL_UART_GetState(uHandle);
 	if ((state == HAL_UART_STATE_READY) || (state == HAL_UART_STATE_BUSY_RX))
 		return HAL_OK;
+#endif
 
 	return HAL_ERROR;
 }
@@ -270,6 +272,7 @@ HAL_StatusTypeDef mbg_SendData(mbgUart_t* uart)
 
 	HAL_StatusTypeDef retVal = HAL_OK;
 
+#ifdef HAL_UART_MODULE_ENABLED
 	// disable receiving
 	mbg_DisableReceiver(uart);
 
@@ -298,6 +301,7 @@ HAL_StatusTypeDef mbg_SendData(mbgUart_t* uart)
 		else
 			plcm_StartSendAtNextSync(&uart->plcm);
 	}
+#endif
 
 	return retVal;
 }
@@ -319,6 +323,7 @@ HAL_StatusTypeDef mbg_CalcRxTimeout(mbgUart_t* mbg)
 
 	if (e_mbgModuleType_Uart == mbg->modType)
 	{
+#ifdef HAL_UART_MODULE_ENABLED
 		assert_param(mbg->handle);
 
 		baud = mbg->handle->Init.BaudRate;
@@ -330,6 +335,7 @@ HAL_StatusTypeDef mbg_CalcRxTimeout(mbgUart_t* mbg)
 
 		if (mbg->handle->Init.StopBits == UART_STOPBITS_2)
 			bits++;
+#endif
 	}
 	else // plc
 	{
@@ -397,6 +403,7 @@ HAL_StatusTypeDef mbg_EnableReceiver(mbgUart_t* uart)
 	assert_param(uart);
 	HAL_StatusTypeDef retVal = HAL_OK;
 
+#ifdef HAL_UART_MODULE_ENABLED
 	if (e_mbgModuleType_Uart == uart->modType)
 	{
 		assert_param(uart->handle);
@@ -405,6 +412,7 @@ HAL_StatusTypeDef mbg_EnableReceiver(mbgUart_t* uart)
 		SET_BIT(uart->handle->Instance->CR1, USART_CR1_RE);
 		retVal += HAL_UART_Receive_IT(uart->handle, &uart->rxQ.rxByte, 1);
 	}
+#endif
 
 	return retVal;
 }
@@ -422,6 +430,7 @@ HAL_StatusTypeDef mbg_DisableReceiver(mbgUart_t* uart)
 	// turn off rx timeout
 	retVal += mbg_DisableRxTimer(uart);
 
+#ifdef HAL_UART_MODULE_ENABLED
 	if (e_mbgModuleType_Uart == uart->modType)
 	{
 		assert_param(uart->handle);
@@ -430,6 +439,7 @@ HAL_StatusTypeDef mbg_DisableReceiver(mbgUart_t* uart)
 		CLEAR_BIT(uart->handle->Instance->CR1, USART_CR1_RE);
 		retVal += HAL_UART_AbortReceive(uart->handle);
 	}
+#endif
 
 	return retVal;
 }

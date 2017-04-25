@@ -25,11 +25,13 @@ HAL_StatusTypeDef plcm_SyncTimerRestart(const uint32_t id);
 HAL_StatusTypeDef plcm_SyncTimerStop(const uint32_t id);
 HAL_StatusTypeDef plcm_BitsTimerRestart(const uint32_t id);
 HAL_StatusTypeDef plcm_BitsTimerStop(const uint32_t id);
+HAL_StatusTypeDef plcm_ZcTimerRestart(const uint32_t id);
 
 HAL_StatusTypeDef plcm_GetIdFromZcPin(uint16_t GPIO_Pin, uint32_t* id);
 HAL_StatusTypeDef plcm_GetIdFromInPin(uint16_t GPIO_Pin, uint32_t* id);
 HAL_StatusTypeDef plcm_GetIdFromSyncTim(TIM_HandleTypeDef* timer, uint32_t* id);
 HAL_StatusTypeDef plcm_GetIdFromBitsTim(TIM_HandleTypeDef* timer, uint32_t* id);
+HAL_StatusTypeDef plcm_GetIdFromZcTim(TIM_HandleTypeDef* timer, uint32_t* id);
 HAL_StatusTypeDef plcm_SendSyncBit(const uint32_t id);
 void plcm_SendDataBit(const uint32_t id);
 HAL_StatusTypeDef plcm_SetIdleState(const uint32_t id);
@@ -51,8 +53,6 @@ HAL_StatusTypeDef plcm_Init(plcm_t* p, uint32_t* id)
 	assert_param(p);
 	assert_param(p->timHandleSync);
 	assert_param(p->timHandleBits);
-	assert_param(p->zCgpio);
-	assert_param(p->zCpin);
 	assert_param(p->plcIngpio);
 	assert_param(p->plcInpin);
 	assert_param(p->plcOutgpio);
@@ -66,6 +66,9 @@ HAL_StatusTypeDef plcm_Init(plcm_t* p, uint32_t* id)
 	// if some modules are declared already, check if provided parameters dont overlay them
 	if (plcIndex)
 	{
+		assert_param(p->zCgpio);
+		assert_param(p->zCpin);
+
 		if (plcIndex >= (PLC_MAX_MODULES - 1))
 			return HAL_ERROR; // cannot add more
 
@@ -127,7 +130,11 @@ HAL_StatusTypeDef plcm_Init(plcm_t* p, uint32_t* id)
 
 	// set timers params to "send" ones if the module is master
 	if (e_plcDevType_Master == p->devType)
+	{
+		assert_param(p->zCgpio);
+		assert_param(p->zCpin);
 		retVal += plcm_SetTimerParams(&p->timParamsBitsSend, p->timHandleBits);
+	}
 
 	// initialize sync timer to 10 ms (for sending)
 	retVal += plcm_SetTimerFreq(100.0f, p->timHandleSync);
@@ -141,17 +148,12 @@ HAL_StatusTypeDef plcm_Init(plcm_t* p, uint32_t* id)
 	else
 		return HAL_ERROR;
 
-	// initialize sync timer to 30 ms (for checking AC state when idle)
-	retVal += plcm_SetTimerFreq(33.0f, p->timHandleSync);
-
-	// save values
-	if (!retVal)
+	// Initialize ZC timer for AC/DC checking
+	if (e_plcDevType_Master == p->devType)
 	{
-		p->timParamsSyncRecv.period = p->timHandleSync->Init.Period;
-		p->timParamsSyncRecv.prescaler = p->timHandleSync->Init.Prescaler;
+		assert_param(p->timHandleZc);
+		retVal += plcm_SetTimerFreq(100.0f, p->timHandleZc);
 	}
-	else
-		return HAL_ERROR;
 
 	// assign the module
 	if (!retVal)
@@ -164,6 +166,9 @@ HAL_StatusTypeDef plcm_Init(plcm_t* p, uint32_t* id)
 
 	// If master, start to check either working on AC or DC
 	retVal += plcm_SetIdleState(*id);
+
+	if (e_plcDevType_Master == p->devType)
+		retVal += plcm_ZcTimerRestart(*id);
 
 	return retVal;
 }
@@ -355,6 +360,24 @@ HAL_StatusTypeDef plcm_BitsTimerStop(const uint32_t id)
 }
 
 /*
+ * @brief	Restarts the PLC ZC timer module
+ * @param	id: module identifier
+ * @param	HAL_OK on success
+ */
+HAL_StatusTypeDef plcm_ZcTimerRestart(const uint32_t id)
+{
+	assert_param(id < plcIndex);
+	HAL_StatusTypeDef retVal = HAL_OK;
+
+	retVal += HAL_TIM_Base_Stop_IT(plcm[id]->timHandleZc); // turn off
+	__HAL_TIM_CLEAR_IT(plcm[id]->timHandleZc, TIM_IT_UPDATE);
+	plcm[id]->timHandleZc->Instance->CNT = 0; // reset counter
+	retVal += HAL_TIM_Base_Start_IT(plcm[id]->timHandleZc); // turn on
+
+	return retVal;
+}
+
+/*
  * @brief	Checks either provided ZC pin matches any ZC pin in the modules table
  */
 HAL_StatusTypeDef plcm_GetIdFromZcPin(uint16_t GPIO_Pin, uint32_t* id)
@@ -430,6 +453,22 @@ HAL_StatusTypeDef plcm_GetIdFromBitsTim(TIM_HandleTypeDef* timer, uint32_t* id)
 	return HAL_ERROR;
 }
 
+HAL_StatusTypeDef plcm_GetIdFromZcTim(TIM_HandleTypeDef* timer, uint32_t* id)
+{
+	assert_param(id);
+
+	for (uint32_t i = 0; i < plcIndex; i++)
+	{
+		if (timer == plcm[i]->timHandleZc)
+		{
+			*id = i;
+			return HAL_OK;
+		}
+	}
+
+	return HAL_ERROR;
+}
+
 HAL_StatusTypeDef plcm_GetIdFromPlc(plcm_t* p, uint32_t* id)
 {
 	assert_param(p);
@@ -487,6 +526,11 @@ void plcm_timHandle(TIM_HandleTypeDef* timer)
 			plcm_SyncTimerHandleSlave(id);
 		else
 			plcm_SyncTimerHandleMaster(id);
+	}
+	else if (!plcm_GetIdFromZcTim(timer, &id)) // ZC tim
+	{
+		if (e_plcDevType_Master == plcm[id]->devType)
+			plcm_ZcTimerHandleMaster(id);
 	}
 }
 
@@ -548,11 +592,9 @@ void plcm_SyncTimerHandleMaster(const uint32_t id)
 			break;
 		}
 
-		case e_plcState_Idle:
 		default:
 		{
-			// expiration in idle state can only mean no AC
-			plcm[id]->supply = e_plcSupplyType_Dc;
+			// do nothing
 		}
 	}
 }
@@ -562,16 +604,28 @@ void plcm_SyncTimerHandleSlave(const uint32_t id)
 
 }
 
+void plcm_ZcTimerHandleMaster(const uint32_t id)
+{
+	// increments ZC counter. If it reaches a certain amount of expirations value, set DC
+	if (plcm[id]->noZcCounter < PLC_EXP_TIL_DC)
+	{
+		plcm[id]->supply = e_plcSupplyType_Ac;
+		plcm[id]->noZcCounter++;
+	}
+	else
+		plcm[id]->supply = e_plcSupplyType_Dc;
+}
+
 void plcm_BitsTimerHandleSlave(const uint32_t id)
 {
-	switch (plcm[id]->state)
+	/*switch (plcm[id]->state)
 	{
 		case e_plcState_RecvWaitForSyncBitTimeout:
 		{
 			// Now in the middle of data bit, read it
 			break;
 		}
-	}
+	}*/
 }
 
 /*
@@ -588,6 +642,8 @@ void plcm_extiHandle(uint16_t GPIO_Pin)
 			return;
 
 		// at this point ZC pin is identified and edge is falling
+		plcm[id]->noZcCounter = 0;
+
 		switch (plcm[id]->state)
 		{
 			case e_plcState_SendWaitForNextZc:
@@ -603,8 +659,7 @@ void plcm_extiHandle(uint16_t GPIO_Pin)
 			case e_plcState_Idle:
 			{
 				// expiration in idle state can only mean AC is on
-				plcm_SyncTimerRestart(id);
-				plcm[id]->supply = e_plcSupplyType_Ac;
+				//plcm_SyncTimerRestart(id);
 				break;
 			}
 
@@ -675,7 +730,7 @@ void plcm_InPinHandleMaster(const uint32_t id)
 HAL_StatusTypeDef plcm_SendSyncBit(const uint32_t id)
 {
 	// set sync strobe
-	plcm_SetOutState(id, 1);
+	plcm_SetOutState(id, 0);
 
 	// set machine state
 	plcm[id]->state = e_plcState_SendWaitForSyncBitDone;
@@ -696,7 +751,7 @@ void plcm_SendDataBit(const uint32_t id)
 			(plcm[id]->trans.bitIndex << 1);
 
 	// set data strobe
-	plcm_SetOutState(id, bit);
+	plcm_SetOutState(id, !bit);
 
 	// increment counters
 	// bit
@@ -706,7 +761,10 @@ void plcm_SendDataBit(const uint32_t id)
 
 		// byte
 		if (plcm[id]->trans.byteIndex >= (plcm[id]->trans.len - 1)) // end transmission
+		{
 			plcm_resetTransData(plcm[id]);
+			plcm[id]->state = e_plcState_Idle;
+		}
 		else
 			plcm[id]->trans.byteIndex++;
 	}
@@ -724,7 +782,7 @@ void plcm_SendDataBit(const uint32_t id)
 void plcm_ReadDataBit(const uint32_t id)
 {
 	// save bit value
-	uint32_t bit = plcm_GetInState(id) ? 1 : 0;
+	uint32_t bit = plcm_GetInState(id) ? 0 : 1; // 0s on PLC are 1s
 
 	// clear whole byte at first bit
 	if (!plcm[id]->trans.bitIndex)
@@ -753,13 +811,13 @@ HAL_StatusTypeDef plcm_SetIdleState(const uint32_t id)
 {
 	HAL_StatusTypeDef retVal = HAL_OK;
 
-	// out state low
-	plcm_SetOutState(id, 0);
+	// out state high (idle)
+	plcm_SetOutState(id, 1);
 
 	// Sync timer: stop it, set it do searching for AC, restart it
 	retVal += plcm_SyncTimerStop(id);
-	retVal += plcm_SetTimerParams(&plcm[id]->timParamsSyncRecv, plcm[id]->timHandleSync);
-	retVal += plcm_SyncTimerRestart(id);
+	//retVal += plcm_SetTimerParams(&plcm[id]->timParamsSyncRecv, plcm[id]->timHandleSync);
+	//retVal += plcm_SyncTimerRestart(id);
 
 	// Bits timer: set it to send if master, stop it
 	timParams_t* tp = (e_plcDevType_Master == plcm[id]->devType) ?
@@ -784,7 +842,11 @@ void plcm_resetTransData(plcm_t* plc)
 {
 	assert_param(plc);
 
-	plc->trans.status = e_plcTransStatus_Idle;
+	if (e_plcDevType_Master == plc->devType)
+		plc->trans.status = e_plcTransStatus_Idle;
+	else
+		plc->trans.status = e_plcTransStatus_Receiving;
+
 	plc->trans.data = &plc->recvByte;
 	plc->trans.byteIndex = 0;
 	plc->trans.bitIndex = 0;
@@ -796,7 +858,7 @@ void plcm_resetTransData(plcm_t* plc)
  */
 HAL_StatusTypeDef plcm_FinishSendChunk(const uint32_t id)
 {
-	plcm_SetOutState(id, 0);
+	plcm_SetOutState(id, 1);
 	return plcm_BitsTimerStop(id);
 }
 

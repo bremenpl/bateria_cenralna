@@ -22,6 +22,12 @@
 #define		CURDET_GPIO			GPIOA
 #define		CURDET_PIN			GPIO_PIN_3
 
+#define 	PLC_IN_GPIO			GPIOA
+#define 	PLC_IN_PIN			GPIO_PIN_10
+
+#define 	PLC_OUT_GPIO		GPIOA
+#define 	PLC_OUT_PIN			GPIO_PIN_9
+
 #define		CURFLOW_SAMPLES_MAX	1000
 #define		CURFLOW_POS_SAMPLES	5
 

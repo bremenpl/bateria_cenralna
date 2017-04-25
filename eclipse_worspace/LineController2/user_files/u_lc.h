@@ -21,7 +21,7 @@
 #define LC_NO_OF_RCS			20
 #define LC_NO_OF_PRES_REGS		((LC_NO_OF_RCS / 8) + 1)
 
-#define LC_PING_TIMEOUT			1000
+#define LC_PING_TIMEOUT			2000
 #define LC_RESP_QUEUE_TIMEOUT	100
 #define LC_PINGS_TILL_PRESENT	3
 
