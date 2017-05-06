@@ -117,7 +117,6 @@ typedef struct
 	 * or AC failure accrdongly.
 	 */
 	timParams_t			timParamsSyncSend;	/*!< trasmit bits timer settings */
-	timParams_t			timParamsSyncRecv;	/*!< Receive bits timer settings */
 
 	// operational variables
 	plcState_t			state;				/*!< Module machine state 		*/

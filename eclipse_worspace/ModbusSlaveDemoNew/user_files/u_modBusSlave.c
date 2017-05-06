@@ -28,6 +28,7 @@ mbsUart_t* mbs_GetModuleFromUart(UART_HandleTypeDef* uart);
 mbsUart_t* mbs_GetModuleFromTimer(TIM_HandleTypeDef* timer);
 mbsUart_t* mbs_GetModuleFromMbg(mbgUart_t* mbg);
 mbsUart_t* mbs_GetModuleFromPlc(plcm_t* plc);
+HAL_StatusTypeDef mbs_TxDoneRoutine(mbsUart_t* mbsu);
 
 void mbs_digForFrames(mbsUart_t* m, const uint8_t byte);
 void mbs_rxFrameHandle(mbsUart_t* const mbsu);
@@ -418,6 +419,33 @@ void mbs_uartTxRoutine(UART_HandleTypeDef* uHandle)
 
 	if (mbs)
 		mbg_RxTimeout(&mbs->mbg);
+}
+
+/*
+ * @brief	ModBus MASTER strong override function.
+ * 			Use it to turn on the received after succesfull request is sent.
+ * 			Return if \ref plcHandle does not match configured periph.
+ * @param	plcHandle: pointer to the plc modbus master struct.
+ */
+void mbs_plcTxRoutine(plcm_t* plcHandle)
+{
+	assert_param(plcHandle);
+
+	mbsUart_t* mbs = mbs_GetModuleFromPlc(plcHandle);
+
+	if (mbs)
+		mbs_TxDoneRoutine(mbs);
+}
+
+HAL_StatusTypeDef mbs_TxDoneRoutine(mbsUart_t* mbsu)
+{
+	assert_param(mbsu);
+	HAL_StatusTypeDef retVal = HAL_OK;
+
+	// reset modbus rx state
+	retVal += mbg_RxTimeout(&mbsu->mbg);
+
+	return retVal;
 }
 
 void mbs_plcRxRoutine(plcm_t* plcHandle)

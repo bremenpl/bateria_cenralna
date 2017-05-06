@@ -78,7 +78,7 @@ HAL_StatusTypeDef mbm_Init(mbmUart_t* mbmu, size_t noOfModules)
 		retVal += mbg_UartInit(&m->mbg);
 
 		// reinitialize master timeout
-		m->toutQ.timeout_ms = m->mbg.mbTimeout_ms;
+		m->toutQ.timeout_ms = m->mbg.mbTimeout_ms * 3;
 
 		// create slave responses reception queue.
 		msgDef_temp.item_sz = sizeof(uint32_t);
@@ -518,7 +518,10 @@ void mbm_rxFrameHandle(mbmUart_t* const mbmu)
 
 	// CRC mismatch
 	else
+	{
 		mbm_RespCrcMatchError(mf->crc, calcCrc);
+		mbm_uartRxTimeoutRoutine(mbmu->mbg.rxQ.toutTim);
+	}
 }
 
 /*
@@ -608,6 +611,21 @@ HAL_StatusTypeDef mbm_TxDoneRoutine(mbmUart_t* mbmu)
 	retVal+= mbm_RespTimeoutRestart(mbmu);
 
 	return retVal;
+}
+
+void mbm_plcRxRoutine(plcm_t* plcHandle)
+{
+	assert_param(plcHandle);
+
+	// check if handle is known
+	mbmUart_t* mbm = mbm_GetModuleFromPlc(plcHandle);
+
+	if (mbm)
+	{
+		// move data from plc layer to mbg layer
+		mbm->mbg.rxQ.rxByte = *mbm->mbg.plcm.trans.data;
+		mbg_ByteReceived(&mbm->mbg);
+	}
 }
 
 /*

@@ -193,7 +193,6 @@ HAL_StatusTypeDef mbg_RxTimeout(mbgUart_t* uart)
 
 	// reset state
 	uart->rxState = e_mbgRxState_addr;
-	uart->plcm.state = e_plcState_Idle;
 	plcm_resetTransData(&uart->plcm);
 	return HAL_OK;
 }
@@ -272,17 +271,18 @@ HAL_StatusTypeDef mbg_SendData(mbgUart_t* uart)
 
 	HAL_StatusTypeDef retVal = HAL_OK;
 
-#ifdef HAL_UART_MODULE_ENABLED
 	// disable receiving
 	mbg_DisableReceiver(uart);
 
 	if (e_mbgModuleType_Uart == uart->modType)
 	{
+#ifdef HAL_UART_MODULE_ENABLED
 		// send with DMA
 		while (mbg_CheckSendStatus(uart->handle))
 			osDelay(1);
 
 		retVal += HAL_UART_Transmit_DMA(uart->handle, uart->txbuf, uart->len);
+#endif
 	}
 	else // PLC
 	{
@@ -301,7 +301,6 @@ HAL_StatusTypeDef mbg_SendData(mbgUart_t* uart)
 		else
 			plcm_StartSendAtNextSync(&uart->plcm);
 	}
-#endif
 
 	return retVal;
 }
@@ -403,16 +402,18 @@ HAL_StatusTypeDef mbg_EnableReceiver(mbgUart_t* uart)
 	assert_param(uart);
 	HAL_StatusTypeDef retVal = HAL_OK;
 
-#ifdef HAL_UART_MODULE_ENABLED
 	if (e_mbgModuleType_Uart == uart->modType)
 	{
+#ifdef HAL_UART_MODULE_ENABLED
 		assert_param(uart->handle);
 
 		// enable receiving
 		SET_BIT(uart->handle->Instance->CR1, USART_CR1_RE);
 		retVal += HAL_UART_Receive_IT(uart->handle, &uart->rxQ.rxByte, 1);
-	}
 #endif
+	}
+	else
+		uart->plcm.state = e_plcState_RecvWaitForSyncBit1st;
 
 	return retVal;
 }
@@ -426,6 +427,10 @@ HAL_StatusTypeDef mbg_DisableReceiver(mbgUart_t* uart)
 {
 	assert_param(uart);
 	HAL_StatusTypeDef retVal = HAL_OK;
+
+	// update state
+	if (e_mbgModuleType_Plc == uart->modType)
+		uart->plcm.state = e_plcState_Idle;
 
 	// turn off rx timeout
 	retVal += mbg_DisableRxTimer(uart);
