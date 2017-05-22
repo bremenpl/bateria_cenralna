@@ -320,7 +320,8 @@ void mbs_rxFrameHandle(mbsUart_t* const mbsu)
 	osDelay(mbsu->mbg.mbTimeout_ms);
 
 	// validate crc
-	if (!mbg_CheckCrc(mf, 0))
+	uint16_t calcCrc = 0;
+	if (!mbg_CheckCrc(mf, &calcCrc))
 	{
 		// print the request
 		mf->msgType = e_mbgMesgType_Request;

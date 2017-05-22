@@ -613,6 +613,21 @@ void plcm_BitsTimerHandleSlave(const uint32_t id)
 					break;
 				}
 
+				case e_plcTransStatus_SendingLastBit:
+				{
+					plcm_resetTransData(plcm[id]);
+
+					// transmission finished
+					plcm_SyncTimerStop(id);
+
+					// call tx routine
+					plcm_txRoutine(plcm[id]);
+
+					// reception now, wait for 1st sync bit
+					plcm[id]->state = e_plcState_RecvWaitForSyncBit1st;
+					break;
+				}
+
 				default:
 				{
 					// debug
@@ -772,17 +787,8 @@ void plcm_SendDataBit(const uint32_t id)
 		// byte
 		if (plcm[id]->trans.byteIndex >= (plcm[id]->trans.len - 1)) // end transmission
 		{
-			plcm_resetTransData(plcm[id]);
-
-			// transmission finished
-			plcm_SyncTimerStop(id);
-
-			// call tx routine
-			plcm_txRoutine(plcm[id]);
-
-			// reception now, wait for 1st sync bit
-			plcm[id]->state = e_plcState_RecvWaitForSyncBit1st;
-			return;
+			plcm[id]->trans.status = e_plcTransStatus_SendingLastBit;
+			plcm[id]->trans.byteIndex = 0;
 		}
 		else
 			plcm[id]->trans.byteIndex++;
@@ -863,6 +869,10 @@ HAL_StatusTypeDef plcm_SetIdleState(const uint32_t id)
 void plcm_resetTransData(plcm_t* plc)
 {
 	assert_param(plc);
+
+	uint32_t id;
+	if (!plcm_GetIdFromPlc(plc, &id))
+		plcm_SetOutState(id, 1);
 
 	plc->trans.status = e_plcTransStatus_Receiving;
 	plc->trans.data = &plc->recvByte;

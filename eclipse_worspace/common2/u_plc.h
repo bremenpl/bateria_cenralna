@@ -68,7 +68,8 @@ typedef enum
 {
 	e_plcTransStatus_Idle			= 0,
 	e_plcTransStatus_Sending		= 1,
-	e_plcTransStatus_Receiving		= 2,
+	e_plcTransStatus_SendingLastBit	= 2,
+	e_plcTransStatus_Receiving		= 3,
 } plcTransStatus_t;
 
 typedef struct

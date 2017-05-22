@@ -99,9 +99,9 @@ void lc_pingTask(void const* argument)
 	while (1)
 	{
 		// ping loop
-		for (i = 0, addr = 1; i < 2; i++, addr++)
+		for (i = 0, addr = 1; i < 3; i++, addr++)
 		{
-			osDelay(100); // debug
+			osDelay(500); // debug
 
 			// take RC access semaphore
 			osSemaphoreWait(l->rcAccesSem, osWaitForever);
